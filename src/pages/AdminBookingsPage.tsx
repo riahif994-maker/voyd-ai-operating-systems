@@ -1,15 +1,23 @@
-import { AlertCircle, CalendarDays, CheckCircle2, Copy, Download, LogOut, Mail, MessageCircle, Search, ShieldCheck, XCircle } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, Copy, Download, LogOut, MessageCircle, Search, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { bookingConfig, bookingOwnerEmail, createIcsEvent, formatDateOnlyInZone, formatDateTimeInZone } from "../config/booking";
-import { Button } from "../components/voyd/Button";
+import { useNavigate } from "react-router-dom";
+import {
+  bookingConfig,
+  createIcsEvent,
+  formatDateOnlyInZone,
+  formatDateTimeInZone,
+} from "../config/booking";
 import { PageTransition } from "../components/voyd/PageTransition";
-import { Reveal } from "../components/voyd/Reveal";
+import {
+  AdminSession,
+  clearAdminSession,
+  parseSessionFromUrlHash,
+  readAdminSession,
+  saveAdminSession,
+  verifyAdminSession,
+} from "../lib/adminSession";
 
-type AdminSession = {
-  accessToken: string;
-  expiresAt?: number;
-  email?: string;
-};
+type BookingStatus = "new" | "confirmed" | "completed" | "cancelled" | "no_show";
 
 type BookingRecord = {
   id: string;
@@ -17,7 +25,7 @@ type BookingRecord = {
   starts_at: string;
   ends_at: string;
   voyd_timezone: string;
-  visitor_timezone: string;
+  client_timezone: string;
   full_name: string;
   work_email: string;
   phone_or_whatsapp: string;
@@ -28,59 +36,25 @@ type BookingRecord = {
   meeting_topic: string;
   preferred_contact_method: string;
   additional_message: string | null;
-  status: "new" | "confirmed" | "completed" | "cancelled" | "no_show";
+  status: BookingStatus;
+  admin_notes: string | null;
   source_page: string | null;
   referrer: string | null;
-  private_notes: string | null;
   created_at: string;
   updated_at: string;
 };
 
 type BlockRecord = {
   id: string;
-  block_type: "date" | "slot";
-  block_date: string;
-  slot_time: string | null;
+  starts_at: string;
   reason: string | null;
-  created_by: string | null;
+  created_at: string;
 };
 
-const sessionKey = "voyd-admin-session";
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-
-function readStoredSession(): AdminSession | null {
-  const raw = localStorage.getItem(sessionKey);
-  if (!raw) return null;
-  try {
-    const session = JSON.parse(raw) as AdminSession;
-    if (!session.accessToken) return null;
-    if (session.expiresAt && session.expiresAt * 1000 < Date.now()) return null;
-    return session;
-  } catch {
-    return null;
-  }
-}
-
-function parseHashSession(): AdminSession | null {
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const accessToken = hash.get("access_token");
-  if (!accessToken) return null;
-  const expiresAt = Number(hash.get("expires_at") || 0) || undefined;
-  window.history.replaceState(null, "", window.location.pathname);
-  return { accessToken, expiresAt };
-}
-
-function saveSession(session: AdminSession | null) {
-  if (!session) {
-    localStorage.removeItem(sessionKey);
-    return;
-  }
-  localStorage.setItem(sessionKey, JSON.stringify(session));
-}
+type RangeFilter = "today" | "upcoming" | "past" | "cancelled" | "all";
 
 function whatsappUrl(phone: string) {
-  const digits = phone.replace(/\D/g, "");
+  const digits = phone.replace(/[^0-9]/g, "");
   return digits ? `https://wa.me/${digits}` : "https://wa.me/4917686606120";
 }
 
@@ -105,29 +79,110 @@ function downloadIcs(booking: BookingRecord) {
 }
 
 export default function AdminBookingsPage() {
-  const [session, setSession] = useState<AdminSession | null>(() => parseHashSession() || readStoredSession());
-  const [email, setEmail] = useState<string>(bookingOwnerEmail);
-  const [authMessage, setAuthMessage] = useState("");
-  const [authError, setAuthError] = useState("");
+  const navigate = useNavigate();
+  const [session, setSession] = useState<AdminSession | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [blocks, setBlocks] = useState<BlockRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [rangeFilter, setRangeFilter] = useState<RangeFilter>("upcoming");
   const [view, setView] = useState<"list" | "calendar">("list");
   const [blockDate, setBlockDate] = useState("");
   const [blockSlot, setBlockSlot] = useState("");
   const [blockReason, setBlockReason] = useState("");
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
 
-  const configured = Boolean(supabaseUrl && supabaseAnonKey);
+  useEffect(() => {
+    const hashSession = parseSessionFromUrlHash();
+    const existing = hashSession || readAdminSession();
+    if (!existing) {
+      setAuthChecked(true);
+      navigate("/admin/login", { replace: true });
+      return;
+    }
+    verifyAdminSession(existing)
+      .then((email) => {
+        const verified = { ...existing, email };
+        saveAdminSession(verified);
+        setSession(verified);
+        setAuthChecked(true);
+      })
+      .catch(() => {
+        saveAdminSession(null);
+        setAuthChecked(true);
+        navigate("/admin/login", { replace: true });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]);
 
-  const authorized = session?.email === bookingOwnerEmail;
+  const loadBookings = async (accessToken: string) => {
+    setLoading(true);
+    setActionError("");
+    try {
+      const response = await fetch("/api/admin/bookings", { headers: { Authorization: `Bearer ${accessToken}` } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not load admin bookings.");
+      setBookings(data.bookings || []);
+      setBlocks(data.blocks || []);
+      setNotesDraft(Object.fromEntries((data.bookings || []).map((booking: BookingRecord) => [booking.id, booking.admin_notes || ""])));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not load admin bookings.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.accessToken) loadBookings(session.accessToken);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.accessToken]);
+
+  const logout = () => {
+    clearAdminSession();
+    setSession(null);
+    setBookings([]);
+    setBlocks([]);
+    navigate("/admin/login", { replace: true });
+  };
+
   const todayKey = formatDateOnlyInZone(new Date(), bookingConfig.timezone);
+  const now = Date.now();
+
+  const stats = useMemo(
+    () => ({
+      today: bookings.filter((b) => formatDateOnlyInZone(b.starts_at, bookingConfig.timezone) === todayKey && b.status !== "cancelled").length,
+      upcoming: bookings.filter((b) => new Date(b.starts_at).getTime() >= now && !["cancelled", "completed", "no_show"].includes(b.status)).length,
+      past: bookings.filter((b) => new Date(b.starts_at).getTime() < now && b.status !== "cancelled").length,
+      cancelled: bookings.filter((b) => b.status === "cancelled").length,
+    }),
+    [bookings, todayKey, now],
+  );
+
+  const rangeFiltered = useMemo(() => {
+    return bookings.filter((booking) => {
+      const startMs = new Date(booking.starts_at).getTime();
+      const isToday = formatDateOnlyInZone(booking.starts_at, bookingConfig.timezone) === todayKey;
+      switch (rangeFilter) {
+        case "today":
+          return isToday && booking.status !== "cancelled";
+        case "upcoming":
+          return startMs >= now && !["cancelled", "completed", "no_show"].includes(booking.status);
+        case "past":
+          return startMs < now && booking.status !== "cancelled";
+        case "cancelled":
+          return booking.status === "cancelled";
+        default:
+          return true;
+      }
+    });
+  }, [bookings, rangeFilter, todayKey, now]);
 
   const visibleBookings = useMemo(() => {
     const needle = query.toLowerCase();
-    return bookings.filter((booking) => {
+    return rangeFiltered.filter((booking) => {
       const statusMatch = statusFilter === "all" || booking.status === statusFilter;
       const textMatch =
         !needle ||
@@ -137,7 +192,7 @@ export default function AdminBookingsPage() {
           .includes(needle);
       return statusMatch && textMatch;
     });
-  }, [bookings, query, statusFilter]);
+  }, [rangeFiltered, query, statusFilter]);
 
   const groupedByDate = useMemo(() => {
     return visibleBookings.reduce<Record<string, BookingRecord[]>>((groups, booking) => {
@@ -148,130 +203,21 @@ export default function AdminBookingsPage() {
     }, {});
   }, [visibleBookings]);
 
-  const stats = useMemo(() => {
-    const now = Date.now();
-    return {
-      today: bookings.filter((booking) => formatDateOnlyInZone(booking.starts_at, bookingConfig.timezone) === todayKey && booking.status !== "cancelled").length,
-      upcoming: bookings.filter((booking) => new Date(booking.starts_at).getTime() >= now && !["cancelled", "completed", "no_show"].includes(booking.status)).length,
-      past: bookings.filter((booking) => new Date(booking.starts_at).getTime() < now && booking.status !== "cancelled").length,
-      cancelled: bookings.filter((booking) => booking.status === "cancelled").length,
-    };
-  }, [bookings, todayKey]);
-
-  const verifySession = async (current: AdminSession) => {
-    if (!configured) return;
-    setLoading(true);
-    setAuthError("");
-    try {
-      const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/user`, {
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${current.accessToken}`,
-        },
-      });
-      const user = await response.json().catch(() => ({}));
-      if (!response.ok || !user.email) throw new Error("Admin session expired. Please request a new login link.");
-      if (user.email !== bookingOwnerEmail) throw new Error("This admin dashboard is restricted to the VOYD owner.");
-      const verifiedSession = { ...current, email: user.email };
-      setSession(verifiedSession);
-      saveSession(verifiedSession);
-    } catch (error) {
-      setSession(null);
-      saveSession(null);
-      setAuthError(error instanceof Error ? error.message : "Could not verify admin session.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadBookings = async () => {
-    if (!session?.accessToken || !authorized) return;
-    setLoading(true);
-    try {
-      const response = await fetch("/api/admin/bookings", {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Could not load admin bookings.");
-      setBookings(data.bookings || []);
-      setBlocks(data.blocks || []);
-      setNotesDraft(
-        Object.fromEntries((data.bookings || []).map((booking: BookingRecord) => [booking.id, booking.private_notes || ""])),
-      );
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Could not load admin bookings.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (session?.accessToken && !session.email) verifySession(session);
-  }, [session?.accessToken, session?.email]);
-
-  useEffect(() => {
-    if (authorized) loadBookings();
-  }, [authorized]);
-
-  const requestMagicLink = async (event: FormEvent) => {
-    event.preventDefault();
-    setAuthError("");
-    setAuthMessage("");
-    if (email !== bookingOwnerEmail) {
-      setAuthError("Only the VOYD owner email is allowed.");
-      return;
-    }
-    if (!configured) {
-      setAuthError("Supabase public auth variables are missing.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/otp`, {
-        method: "POST",
-        headers: {
-          apikey: supabaseAnonKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          options: { emailRedirectTo: `${window.location.origin}/admin/bookings` },
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.msg || data.error_description || "Could not send login link.");
-      setAuthMessage("Secure login link sent. Open it from the VOYD owner inbox.");
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Could not send login link.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = () => {
-    setSession(null);
-    saveSession(null);
-    setBookings([]);
-    setBlocks([]);
-  };
-
   const updateBooking = async (id: string, payload: Record<string, string>) => {
     if (!session?.accessToken) return;
     setLoading(true);
+    setActionError("");
     try {
       const response = await fetch("/api/admin/bookings", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-        body: JSON.stringify(payload.action === "notes" ? { id, action: "notes", privateNotes: payload.privateNotes } : { id, action: "status", status: payload.status }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.accessToken}` },
+        body: JSON.stringify({ id, ...payload }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Could not update booking.");
-      await loadBookings();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not update this booking.");
+      await loadBookings(session.accessToken);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Could not update booking.");
+      setActionError(error instanceof Error ? error.message : "Could not update this booking.");
     } finally {
       setLoading(false);
     }
@@ -279,25 +225,23 @@ export default function AdminBookingsPage() {
 
   const createBlock = async (event: FormEvent) => {
     event.preventDefault();
-    if (!session?.accessToken) return;
+    if (!session?.accessToken || !blockDate) return;
     setLoading(true);
+    setActionError("");
     try {
       const response = await fetch("/api/admin/blocks", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-        body: JSON.stringify({ blockDate, slotTime: blockSlot, reason: blockReason }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.accessToken}` },
+        body: JSON.stringify({ dateKey: blockDate, slotTime: blockSlot, reason: blockReason }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Could not block availability.");
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not block this availability.");
       setBlockDate("");
       setBlockSlot("");
       setBlockReason("");
-      await loadBookings();
+      await loadBookings(session.accessToken);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Could not block availability.");
+      setActionError(error instanceof Error ? error.message : "Could not block this availability.");
     } finally {
       setLoading(false);
     }
@@ -306,65 +250,30 @@ export default function AdminBookingsPage() {
   const deleteBlock = async (id: string) => {
     if (!session?.accessToken) return;
     setLoading(true);
+    setActionError("");
     try {
       const response = await fetch("/api/admin/blocks", {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.accessToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.accessToken}` },
         body: JSON.stringify({ id }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Could not unblock availability.");
-      await loadBookings();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not unblock this availability.");
+      await loadBookings(session.accessToken);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Could not unblock availability.");
+      setActionError(error instanceof Error ? error.message : "Could not unblock this availability.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!configured || !authorized) {
+  if (!authChecked || !session) {
     return (
       <PageTransition>
         <main className="page admin-page">
           <section className="page-hero">
             <p className="eyebrow">Private Admin</p>
-            <h1>VOYD booking dashboard requires secure owner authentication.</h1>
-            <p>Only {bookingOwnerEmail} can access bookings, availability blocks, notes, and booking actions.</p>
-          </section>
-          <section className="section admin-auth-shell">
-            <Reveal>
-              <form className="contact-card admin-auth-card" onSubmit={requestMagicLink}>
-                <ShieldCheck size={24} />
-                <strong>Admin login</strong>
-                <p>Request a Supabase Auth magic link. Access is checked again by the VOYD backend before bookings are returned.</p>
-                <label>
-                  Owner email
-                  <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" />
-                </label>
-                <Button type="submit" icon={false}>{loading ? "Sending..." : "Send secure login link"}</Button>
-                {!configured ? (
-                  <div className="form-state error">
-                    <AlertCircle size={16} />
-                    Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.
-                  </div>
-                ) : null}
-                {authMessage ? (
-                  <div className="form-state success">
-                    <CheckCircle2 size={16} />
-                    {authMessage}
-                  </div>
-                ) : null}
-                {authError ? (
-                  <div className="form-state error">
-                    <AlertCircle size={16} />
-                    {authError}
-                  </div>
-                ) : null}
-              </form>
-            </Reveal>
+            <h1>Checking admin session...</h1>
           </section>
         </main>
       </PageTransition>
@@ -380,28 +289,36 @@ export default function AdminBookingsPage() {
           <p>Manage discovery calls, availability blocks, client context, statuses, notes, and calendar exports.</p>
           <button className="download-ics" type="button" onClick={logout}>
             <LogOut size={15} />
-            Logout
+            Log out
           </button>
         </section>
 
         <section className="section admin-dashboard">
           <div className="admin-metrics">
             <article>
-              <small>Today&apos;s calls</small>
+              <small>Today&apos;s bookings</small>
               <strong>{stats.today}</strong>
             </article>
             <article>
-              <small>Upcoming calls</small>
+              <small>Upcoming bookings</small>
               <strong>{stats.upcoming}</strong>
             </article>
             <article>
-              <small>Past calls</small>
+              <small>Past bookings</small>
               <strong>{stats.past}</strong>
             </article>
             <article>
-              <small>Cancelled calls</small>
+              <small>Cancelled bookings</small>
               <strong>{stats.cancelled}</strong>
             </article>
+          </div>
+
+          <div className="admin-range-tabs">
+            {(["today", "upcoming", "past", "cancelled", "all"] as RangeFilter[]).map((range) => (
+              <button key={range} type="button" className={rangeFilter === range ? "is-active" : ""} onClick={() => setRangeFilter(range)}>
+                {range === "all" ? "All" : range.charAt(0).toUpperCase() + range.slice(1)}
+              </button>
+            ))}
           </div>
 
           <div className="admin-toolbar">
@@ -418,15 +335,19 @@ export default function AdminBookingsPage() {
               <option value="no_show">No-show</option>
             </select>
             <div>
-              <button className={view === "list" ? "is-active" : ""} type="button" onClick={() => setView("list")}>List</button>
-              <button className={view === "calendar" ? "is-active" : ""} type="button" onClick={() => setView("calendar")}>Calendar</button>
+              <button className={view === "list" ? "is-active" : ""} type="button" onClick={() => setView("list")}>
+                List
+              </button>
+              <button className={view === "calendar" ? "is-active" : ""} type="button" onClick={() => setView("calendar")}>
+                Calendar
+              </button>
             </div>
           </div>
 
-          {authError ? (
+          {actionError ? (
             <div className="form-state error">
               <AlertCircle size={16} />
-              {authError}
+              {actionError}
             </div>
           ) : null}
 
@@ -448,6 +369,7 @@ export default function AdminBookingsPage() {
                   ))}
                 </article>
               ))}
+              {!Object.keys(groupedByDate).length ? <p>No bookings in this range.</p> : null}
             </div>
           ) : (
             <div className="admin-booking-list">
@@ -457,18 +379,26 @@ export default function AdminBookingsPage() {
                     <div>
                       <small>{booking.booking_reference}</small>
                       <h2>{booking.full_name}</h2>
-                      <p>{booking.company} · {booking.selected_product}</p>
+                      <p>
+                        {booking.company} - {booking.selected_product}
+                      </p>
                     </div>
                     <span className={`admin-status admin-status-${booking.status}`}>{booking.status}</span>
                   </div>
                   <dl>
                     <div>
                       <dt>Email</dt>
-                      <dd><a href={`mailto:${booking.work_email}`}>{booking.work_email}</a></dd>
+                      <dd>
+                        <a href={`mailto:${booking.work_email}`}>{booking.work_email}</a>
+                      </dd>
                     </div>
                     <div>
                       <dt>WhatsApp</dt>
-                      <dd><a href={whatsappUrl(booking.phone_or_whatsapp)} target="_blank" rel="noreferrer">{booking.phone_or_whatsapp}</a></dd>
+                      <dd>
+                        <a href={whatsappUrl(booking.phone_or_whatsapp)} target="_blank" rel="noreferrer">
+                          {booking.phone_or_whatsapp}
+                        </a>
+                      </dd>
                     </div>
                     <div>
                       <dt>Preferred contact</dt>
@@ -479,57 +409,80 @@ export default function AdminBookingsPage() {
                       <dd>{booking.meeting_topic}</dd>
                     </div>
                     <div>
-                      <dt>Europe/Berlin</dt>
+                      <dt>Europe/Berlin time</dt>
                       <dd>{formatDateTimeInZone(booking.starts_at, bookingConfig.timezone)}</dd>
                     </div>
                     <div>
-                      <dt>Visitor local</dt>
-                      <dd>{formatDateTimeInZone(booking.starts_at, booking.visitor_timezone)}</dd>
+                      <dt>Client local time</dt>
+                      <dd>{formatDateTimeInZone(booking.starts_at, booking.client_timezone)}</dd>
                     </div>
                     <div>
-                      <dt>Visitor timezone</dt>
-                      <dd>{booking.visitor_timezone}</dd>
+                      <dt>Client timezone</dt>
+                      <dd>{booking.client_timezone}</dd>
                     </div>
                     <div>
-                      <dt>Notes</dt>
-                      <dd>{booking.private_notes || "No private notes yet."}</dd>
+                      <dt>Source page</dt>
+                      <dd>{booking.source_page || "-"}</dd>
                     </div>
                   </dl>
                   <div className="admin-actions">
-                    <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "confirmed" })}><CheckCircle2 size={14} /> Confirm</button>
-                    <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "completed" })}>Completed</button>
-                    <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "no_show" })}>No-show</button>
-                    <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "cancelled" })}><XCircle size={14} /> Cancel</button>
+                    <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "confirmed" })}>
+                      <CheckCircle2 size={14} /> Confirm
+                    </button>
+                    <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "completed" })}>
+                      Mark completed
+                    </button>
+                    <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "no_show" })}>
+                      Mark no-show
+                    </button>
+                    <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "cancelled" })}>
+                      <XCircle size={14} /> Cancel
+                    </button>
                     {booking.status === "cancelled" ? (
-                      <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "new" })}>Reopen slot</button>
+                      <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "new" })}>
+                        Reopen cancelled slot
+                      </button>
                     ) : null}
-                    <button type="button" onClick={() => navigator.clipboard.writeText(booking.work_email)}><Copy size={14} /> Copy email</button>
-                    <a href={whatsappUrl(booking.phone_or_whatsapp)} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>
-                    <button type="button" onClick={() => downloadIcs(booking)}><Download size={14} /> ICS</button>
+                    <button type="button" onClick={() => navigator.clipboard.writeText(booking.work_email)}>
+                      <Copy size={14} /> Copy email
+                    </button>
+                    <a href={whatsappUrl(booking.phone_or_whatsapp)} target="_blank" rel="noreferrer">
+                      <MessageCircle size={14} /> WhatsApp
+                    </a>
+                    <button type="button" onClick={() => downloadIcs(booking)}>
+                      <Download size={14} /> ICS
+                    </button>
                   </div>
                   <div className="admin-notes">
-                    <textarea value={notesDraft[booking.id] || ""} onChange={(event) => setNotesDraft({ ...notesDraft, [booking.id]: event.target.value })} placeholder="Private owner notes" />
-                    <button type="button" onClick={() => updateBooking(booking.id, { action: "notes", privateNotes: notesDraft[booking.id] || "" })}>Save notes</button>
+                    <textarea
+                      value={notesDraft[booking.id] || ""}
+                      onChange={(event) => setNotesDraft({ ...notesDraft, [booking.id]: event.target.value })}
+                      placeholder="Private admin notes"
+                    />
+                    <button type="button" onClick={() => updateBooking(booking.id, { action: "notes", adminNotes: notesDraft[booking.id] || "" })}>
+                      Save notes
+                    </button>
                   </div>
                 </article>
               ))}
+              {!visibleBookings.length ? <p>No bookings match this view.</p> : null}
             </div>
           )}
 
           <section className="admin-availability">
             <div>
               <h2>Availability management</h2>
-              <p>Blocked dates and slots are stored in Supabase and removed from public availability.</p>
+              <p>Blocked slots are stored in Supabase and removed from public availability immediately.</p>
             </div>
             <form onSubmit={createBlock}>
               <label>
                 Date
-                <input value={blockDate} onChange={(event) => setBlockDate(event.target.value)} type="date" />
+                <input value={blockDate} onChange={(event) => setBlockDate(event.target.value)} type="date" required />
               </label>
               <label>
                 Slot
                 <select value={blockSlot} onChange={(event) => setBlockSlot(event.target.value)}>
-                  <option value="">Full date</option>
+                  <option value="">Full date (both slots)</option>
                   <option value="10:00">10:00 Europe/Berlin only</option>
                   <option value="22:00">22:00 Europe/Berlin only</option>
                 </select>
@@ -538,17 +491,21 @@ export default function AdminBookingsPage() {
                 Reason
                 <input value={blockReason} onChange={(event) => setBlockReason(event.target.value)} placeholder="Travel, holiday, internal workshop..." />
               </label>
-              <button type="submit" disabled={loading}>Block availability</button>
+              <button type="submit" disabled={loading}>
+                Block availability
+              </button>
             </form>
             <div className="block-list">
               {blocks.map((block) => (
                 <p key={block.id}>
-                  <span>{block.block_date}</span>
-                  <strong>{block.block_type === "date" ? "Full date" : `${block.slot_time} slot`}</strong>
-                  <em>{block.reason || "No reason"}</em>
-                  <button type="button" onClick={() => deleteBlock(block.id)}>Unblock</button>
+                  <span>{formatDateTimeInZone(block.starts_at, bookingConfig.timezone)}</span>
+                  <strong>{block.reason || "Blocked"}</strong>
+                  <button type="button" onClick={() => deleteBlock(block.id)}>
+                    Unblock slot
+                  </button>
                 </p>
               ))}
+              {!blocks.length ? <p>No manual blocks right now.</p> : null}
             </div>
           </section>
         </section>

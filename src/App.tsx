@@ -19,6 +19,7 @@ const DocumentationPage = lazy(() => import("./pages/DocumentationPage"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
 const CompanyPage = lazy(() => import("./pages/CompanyPage"));
 const ContactSalesPage = lazy(() => import("./pages/ContactSalesPage"));
+const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage"));
 const AdminBookingsPage = lazy(() => import("./pages/AdminBookingsPage"));
 const VoydNotFoundPage = lazy(() => import("./pages/VoydNotFoundPage"));
 
@@ -75,6 +76,7 @@ function App() {
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/company" element={<CompanyPage />} />
             <Route path="/contact-sales" element={<ContactSalesPage />} />
+            <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin/bookings" element={<AdminBookingsPage />} />
             <Route path="/work" element={<Navigate to="/products" replace />} />
             <Route path="/services" element={<Navigate to="/solutions" replace />} />

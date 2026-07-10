@@ -12,6 +12,7 @@ type ButtonProps = {
   onClick?: () => void;
   icon?: boolean;
   type?: "button" | "submit";
+  disabled?: boolean;
 };
 
 export function Button({
@@ -23,6 +24,7 @@ export function Button({
   onClick,
   icon = true,
   type = "button",
+  disabled = false,
 }: ButtonProps) {
   const classes = `voyd-button voyd-button-${variant} ${className}`.trim();
   const content = (
@@ -57,8 +59,9 @@ export function Button({
       className={classes}
       type={type}
       onClick={onClick}
-      whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.98 }}
+      disabled={disabled}
+      whileHover={disabled ? undefined : { y: -2 }}
+      whileTap={disabled ? undefined : { scale: 0.98 }}
     >
       {content}
     </motion.button>

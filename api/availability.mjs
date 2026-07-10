@@ -1,13 +1,16 @@
-import { handleVoydApi } from "../server/voyd-service.mjs";
+import { handleApi } from "../server/http.mjs";
+import { getAvailability } from "../server/availability.mjs";
 
 export default async function handler(req, res) {
-  const result = await handleVoydApi({
-    method: req.method || "GET",
-    url: req.url || "/api/availability",
-    headers: req.headers,
-    body: req.body,
-    ip: req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "",
-  });
-  for (const [key, value] of Object.entries(result.headers)) res.setHeader(key, value);
-  return res.status(result.status).json(result.body);
+  await handleApi(
+    {
+      GET: async (request) => {
+        const url = new URL(request.url || "/", "http://127.0.0.1");
+        const clientTimeZone = url.searchParams.get("clientTimeZone") || "UTC";
+        return getAvailability(clientTimeZone);
+      },
+    },
+    req,
+    res,
+  );
 }

@@ -1,13 +1,15 @@
-import { handleVoydApi } from "../server/voyd-service.mjs";
+import { handleApi, parseJsonBody } from "../server/http.mjs";
+import { submitBooking } from "../server/booking.mjs";
 
 export default async function handler(req, res) {
-  const result = await handleVoydApi({
-    method: req.method || "POST",
-    url: req.url || "/api/booking",
-    headers: req.headers,
-    body: req.body,
-    ip: req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "",
-  });
-  for (const [key, value] of Object.entries(result.headers)) res.setHeader(key, value);
-  return res.status(result.status).json(result.body);
+  await handleApi(
+    {
+      POST: async (request) => {
+        const payload = await parseJsonBody(request.body);
+        return submitBooking(payload);
+      },
+    },
+    req,
+    res,
+  );
 }

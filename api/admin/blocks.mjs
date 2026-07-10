@@ -1,13 +1,22 @@
-import { handleVoydApi } from "../../server/voyd-service.mjs";
+import { getHeader, handleApi, parseJsonBody } from "../../server/http.mjs";
+import { verifyAdminToken } from "../../server/supabase.mjs";
+import { createAdminBlock, deleteAdminBlock } from "../../server/admin.mjs";
 
 export default async function handler(req, res) {
-  const result = await handleVoydApi({
-    method: req.method || "POST",
-    url: req.url || "/api/admin/blocks",
-    headers: req.headers,
-    body: req.body,
-    ip: req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "",
-  });
-  for (const [key, value] of Object.entries(result.headers)) res.setHeader(key, value);
-  return res.status(result.status).json(result.body);
+  await handleApi(
+    {
+      POST: async (request) => {
+        await verifyAdminToken(getHeader(request.headers, "authorization"));
+        const payload = await parseJsonBody(request.body);
+        return createAdminBlock(payload);
+      },
+      DELETE: async (request) => {
+        await verifyAdminToken(getHeader(request.headers, "authorization"));
+        const payload = await parseJsonBody(request.body);
+        return deleteAdminBlock(payload);
+      },
+    },
+    req,
+    res,
+  );
 }

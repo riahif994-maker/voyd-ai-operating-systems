@@ -10,6 +10,7 @@ export const bookingConfig = Object.freeze({
 export const bookingOwnerEmail = "voyd.contact1@gmail.com";
 export const bookingWhatsappNumber = "+49 176 86606120";
 export const bookingWhatsappUrl = "https://wa.me/4917686606120";
+export const bookingInquiryEmailUrl = "mailto:voyd.contact1@gmail.com?subject=VOYD%20Project%20Inquiry";
 export const bookingStatuses = ["new", "confirmed", "completed", "cancelled", "no_show"];
 
 const datePartFormatterCache = new Map();
@@ -23,11 +24,20 @@ function getFormatter(timeZone, options) {
   return formatter;
 }
 
-export function getVisitorTimeZone() {
+export function getClientTimeZone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   } catch {
     return "UTC";
+  }
+}
+
+export function isValidTimeZone(timeZone) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -132,11 +142,11 @@ export function formatTimeOnlyInZone(isoOrDate, timeZone) {
   }).format(date);
 }
 
-export function buildSlotDisplay(startsAtIso, visitorTimeZone) {
+export function buildSlotDisplay(startsAtIso, clientTimeZone) {
   return {
-    visitorDate: formatDateOnlyInZone(startsAtIso, visitorTimeZone),
-    visitorTime: formatTimeOnlyInZone(startsAtIso, visitorTimeZone),
-    visitorDateTime: formatDateTimeInZone(startsAtIso, visitorTimeZone),
+    clientDate: formatDateOnlyInZone(startsAtIso, clientTimeZone),
+    clientTime: formatTimeOnlyInZone(startsAtIso, clientTimeZone),
+    clientDateTime: formatDateTimeInZone(startsAtIso, clientTimeZone),
     berlinDate: formatDateOnlyInZone(startsAtIso, bookingConfig.timezone),
     berlinTime: formatTimeOnlyInZone(startsAtIso, bookingConfig.timezone),
     berlinDateTime: formatDateTimeInZone(startsAtIso, bookingConfig.timezone),
@@ -173,4 +183,18 @@ export function createIcsEvent({ reference, fullName, email, selectedProduct, me
     "END:VEVENT",
     "END:VCALENDAR",
   ].join("\r\n");
+}
+
+export function googleCalendarUrl({ startsAtIso, durationMinutes = bookingConfig.durationMinutes, selectedProduct, meetingTopic, reference }) {
+  const start = new Date(startsAtIso);
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+  const toStamp = (date) => date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `VOYD discovery call - ${selectedProduct}`,
+    dates: `${toStamp(start)}/${toStamp(end)}`,
+    details: `${meetingTopic || "VOYD discovery call"}\nReference: ${reference || "pending"}`,
+    location: "Video call",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }

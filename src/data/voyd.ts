@@ -663,13 +663,6 @@ export const companyPrinciples = [
   "The best platforms feel calm because the complexity is handled by the system.",
 ];
 
-export const contactSignals = [
-  "Current tools and workflows",
-  "Manual processes worth automating",
-  "Key business metrics",
-  "Required users, roles, and approvals",
-];
-
 export const governanceItems = [
   { label: "Role controls", icon: ShieldCheck },
   { label: "Audit trails", icon: ReceiptText },

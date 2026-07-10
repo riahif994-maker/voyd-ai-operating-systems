@@ -394,6 +394,11 @@ button {
   background: transparent;
 }
 
+.voyd-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .nav-sales {
   min-height: 38px;
   padding-inline: 13px;
@@ -534,8 +539,7 @@ button {
 .benefit-row span,
 .filter-row span,
 .shortcut-row span,
-.industry-card span,
-.signal-list span {
+.industry-card span {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -666,7 +670,6 @@ button {
 .docs-content,
 .docs-sidebar,
 .contact-card,
-.sales-form,
 .company-console,
 .control-panel,
 .comparison-table,
@@ -841,7 +844,6 @@ button {
 .pricing-card p,
 .featured-product p,
 .product-card-body > p,
-.sales-form label,
 .contact-card p {
   color: var(--muted);
   line-height: 1.65;
@@ -963,15 +965,89 @@ button {
   background: rgba(255, 255, 255, 0.055);
 }
 
-.contact-response-note {
-  max-width: none;
-  margin-top: 12px;
-  color: var(--muted-strong);
-  font-size: 0.95rem;
+.single-booking-hero {
+  max-width: 760px;
 }
 
-.production-booking-card {
+.single-booking-section {
+  display: grid;
+  justify-items: center;
+}
+
+.single-booking-card {
+  width: min(680px, 100%);
   gap: 18px;
+}
+
+.booking-unavailable-card {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 22px;
+  border: 1px solid rgba(255, 79, 216, 0.24);
+  border-radius: var(--radius);
+  text-align: center;
+  background: rgba(255, 79, 216, 0.045);
+}
+
+.booking-unavailable-card svg {
+  color: var(--accent);
+}
+
+.booking-unavailable-card strong {
+  color: var(--text);
+}
+
+.success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.slot-remaining-note {
+  margin: 0;
+  color: var(--warning);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.review-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.review-summary div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.032);
+}
+
+.review-summary dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.review-summary dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.field-error {
+  display: block;
+  margin-top: 5px;
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 800;
 }
 
 .booking-stepper {
@@ -1312,7 +1388,14 @@ button {
   gap: 8px;
 }
 
+.admin-range-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .admin-toolbar button,
+.admin-range-tabs button,
 .admin-actions button,
 .admin-actions a,
 .admin-availability button,
@@ -1333,7 +1416,8 @@ button {
   font-weight: 850;
 }
 
-.admin-toolbar button.is-active {
+.admin-toolbar button.is-active,
+.admin-range-tabs button.is-active {
   border-color: rgba(0, 229, 255, 0.34);
   background: rgba(0, 229, 255, 0.08);
 }
@@ -2051,35 +2135,6 @@ button {
   line-height: 1.65;
 }
 
-.contact-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
-  gap: 22px;
-  align-items: start;
-}
-
-.sales-form {
-  display: grid;
-  gap: 16px;
-  padding: 22px;
-}
-
-.sales-form > div {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.sales-form label {
-  display: grid;
-  gap: 8px;
-  font-size: 0.86rem;
-  font-weight: 850;
-}
-
-.sales-form input,
-.sales-form textarea,
-.sales-form select,
 .workspace-search input,
 .command-search input,
 .workspace-command input,
@@ -2092,18 +2147,6 @@ button {
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
   outline: none;
-}
-
-.sales-form input,
-.sales-form select {
-  min-height: 46px;
-  padding: 0 12px;
-}
-
-.sales-form textarea {
-  min-height: 150px;
-  padding: 12px;
-  resize: vertical;
 }
 
 .contact-card {
@@ -2132,44 +2175,6 @@ button {
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 800;
-}
-
-.contact-links {
-  display: grid;
-  gap: 8px;
-}
-
-.contact-links a,
-.contact-links span {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--muted-strong);
-  font-weight: 850;
-}
-
-.contact-links .whatsapp-link {
-  border-color: rgba(74, 222, 128, 0.28);
-  color: var(--success);
-  background: rgba(74, 222, 128, 0.055);
-}
-
-.contact-links span {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.signal-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.signal-list strong {
-  width: 100%;
 }
 
 .not-found-page {
@@ -3674,7 +3679,6 @@ button {
   .hero,
   .split-section,
   .comparison-section,
-  .contact-layout,
   .docs-layout,
   .workspace-layout {
     grid-template-columns: 1fr;
@@ -3783,12 +3787,12 @@ button {
   .docs-grid,
   .deployment-checklist,
   .footer-columns,
-  .sales-form > div,
   .booking-stepper,
   .date-grid,
   .contact-method-grid,
   .production-slot-grid,
   .booking-success-screen dl div,
+  .review-summary,
   .admin-toolbar,
   .admin-booking-card dl,
   .admin-notes,

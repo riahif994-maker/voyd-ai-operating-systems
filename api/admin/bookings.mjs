@@ -1,13 +1,21 @@
-import { handleVoydApi } from "../../server/voyd-service.mjs";
+import { getHeader, handleApi, parseJsonBody } from "../../server/http.mjs";
+import { verifyAdminToken } from "../../server/supabase.mjs";
+import { listAdminBookings, updateAdminBooking } from "../../server/admin.mjs";
 
 export default async function handler(req, res) {
-  const result = await handleVoydApi({
-    method: req.method || "GET",
-    url: req.url || "/api/admin/bookings",
-    headers: req.headers,
-    body: req.body,
-    ip: req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "",
-  });
-  for (const [key, value] of Object.entries(result.headers)) res.setHeader(key, value);
-  return res.status(result.status).json(result.body);
+  await handleApi(
+    {
+      GET: async (request) => {
+        await verifyAdminToken(getHeader(request.headers, "authorization"));
+        return listAdminBookings();
+      },
+      PATCH: async (request) => {
+        await verifyAdminToken(getHeader(request.headers, "authorization"));
+        const payload = await parseJsonBody(request.body);
+        return updateAdminBooking(payload);
+      },
+    },
+    req,
+    res,
+  );
 }
