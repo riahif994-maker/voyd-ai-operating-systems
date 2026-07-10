@@ -19,7 +19,6 @@ const DocumentationPage = lazy(() => import("./pages/DocumentationPage"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
 const CompanyPage = lazy(() => import("./pages/CompanyPage"));
 const ContactSalesPage = lazy(() => import("./pages/ContactSalesPage"));
-const AdminBookingsPage = lazy(() => import("./pages/AdminBookingsPage"));
 const VoydNotFoundPage = lazy(() => import("./pages/VoydNotFoundPage"));
 
 function App() {
@@ -64,7 +63,7 @@ function App() {
       <Navigation onOpenCommand={openCommand} />
       <CommandPalette open={commandOpen} onClose={closeCommand} onLaunchProduct={launchProduct} />
 
-      <Suspense fallback={<div className="route-fallback">Loading VOYD workspace...</div>}>
+      <Suspense fallback={<div className="route-loading">Loading VOYD workspace...</div>}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<PlatformPage onLaunchWorkspace={launchProduct} />} />
@@ -75,7 +74,6 @@ function App() {
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/company" element={<CompanyPage />} />
             <Route path="/contact-sales" element={<ContactSalesPage />} />
-            <Route path="/admin/bookings" element={<AdminBookingsPage />} />
             <Route path="/work" element={<Navigate to="/products" replace />} />
             <Route path="/services" element={<Navigate to="/solutions" replace />} />
             <Route path="/process" element={<Navigate to="/documentation" replace />} />

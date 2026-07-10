@@ -534,8 +534,7 @@ button {
 .benefit-row span,
 .filter-row span,
 .shortcut-row span,
-.industry-card span,
-.signal-list span {
+.industry-card span {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -666,7 +665,6 @@ button {
 .docs-content,
 .docs-sidebar,
 .contact-card,
-.sales-form,
 .company-console,
 .control-panel,
 .comparison-table,
@@ -841,7 +839,6 @@ button {
 .pricing-card p,
 .featured-product p,
 .product-card-body > p,
-.sales-form label,
 .contact-card p {
   color: var(--muted);
   line-height: 1.65;
@@ -963,15 +960,40 @@ button {
   background: rgba(255, 255, 255, 0.055);
 }
 
-.contact-response-note {
-  max-width: none;
-  margin-top: 12px;
-  color: var(--muted-strong);
-  font-size: 0.95rem;
+.single-booking-card {
+  gap: 18px;
+  width: min(860px, 100%);
 }
 
-.production-booking-card {
-  gap: 18px;
+.single-booking-section {
+  display: grid;
+  justify-items: center;
+}
+
+.booking-unavailable-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(255, 79, 216, 0.22);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 79, 216, 0.08), rgba(0, 229, 255, 0.035)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.booking-unavailable-card svg {
+  color: var(--accent-color);
+}
+
+.booking-unavailable-card strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.booking-unavailable-card p {
+  margin: 0;
+  color: var(--muted-strong);
+  line-height: 1.6;
 }
 
 .booking-stepper {
@@ -1197,309 +1219,6 @@ button {
   color: var(--text);
   font-size: 0.84rem;
   font-weight: 850;
-}
-
-.admin-auth-shell {
-  display: grid;
-  place-items: start center;
-}
-
-.admin-auth-card {
-  width: min(520px, 100%);
-  gap: 14px;
-}
-
-.admin-auth-card > svg {
-  color: var(--secondary);
-}
-
-.admin-auth-card > strong,
-.admin-availability h2 {
-  color: var(--text);
-  font-size: 1.1rem;
-}
-
-.admin-hero .download-ics {
-  width: fit-content;
-}
-
-.admin-dashboard {
-  display: grid;
-  gap: 18px;
-}
-
-.admin-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.admin-metrics article,
-.admin-booking-card,
-.admin-calendar-view article,
-.admin-availability {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.028)),
-    rgba(10, 13, 20, 0.82);
-  box-shadow: var(--shadow-soft);
-}
-
-.admin-metrics article {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-}
-
-.admin-metrics small,
-.admin-booking-head small,
-.admin-booking-card dt {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 950;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-metrics strong {
-  color: var(--text);
-  font-size: 1.8rem;
-}
-
-.admin-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.admin-toolbar label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.admin-toolbar input,
-.admin-toolbar select,
-.admin-availability input,
-.admin-availability select,
-.admin-notes textarea {
-  width: 100%;
-  min-height: 42px;
-  border: 0;
-  color: var(--text);
-  background: transparent;
-  outline: none;
-}
-
-.admin-toolbar select,
-.admin-availability input,
-.admin-availability select,
-.admin-notes textarea {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.admin-toolbar > div {
-  display: flex;
-  gap: 8px;
-}
-
-.admin-toolbar button,
-.admin-actions button,
-.admin-actions a,
-.admin-availability button,
-.block-list button,
-.admin-notes button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.045);
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 850;
-}
-
-.admin-toolbar button.is-active {
-  border-color: rgba(0, 229, 255, 0.34);
-  background: rgba(0, 229, 255, 0.08);
-}
-
-.admin-booking-list,
-.admin-calendar-view {
-  display: grid;
-  gap: 12px;
-}
-
-.admin-booking-card {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-}
-
-.admin-booking-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.admin-booking-head h2 {
-  margin: 4px 0;
-  color: var(--text);
-  font-size: 1.15rem;
-}
-
-.admin-booking-head p {
-  margin: 0;
-  color: var(--muted-strong);
-}
-
-.admin-status {
-  display: inline-flex;
-  height: 30px;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--muted-strong);
-  background: rgba(255, 255, 255, 0.045);
-  font-size: 0.74rem;
-  font-weight: 950;
-}
-
-.admin-status-new,
-.admin-status-confirmed {
-  border-color: rgba(74, 222, 128, 0.25);
-  color: var(--success);
-}
-
-.admin-status-cancelled,
-.admin-status-no_show {
-  border-color: rgba(255, 79, 216, 0.28);
-  color: var(--accent-color);
-}
-
-.admin-booking-card dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-}
-
-.admin-booking-card dl div {
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.032);
-}
-
-.admin-booking-card dd {
-  margin: 5px 0 0;
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font-size: 0.84rem;
-}
-
-.admin-booking-card a {
-  color: var(--secondary);
-}
-
-.admin-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.admin-notes {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-
-.admin-notes textarea {
-  min-height: 72px;
-  padding: 10px;
-}
-
-.admin-calendar-view article {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-}
-
-.admin-calendar-view article > div,
-.admin-calendar-view p,
-.block-list p {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.admin-calendar-view p,
-.block-list p {
-  margin: 0;
-  padding: 9px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.admin-calendar-view span,
-.admin-calendar-view em,
-.block-list span,
-.block-list em {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-style: normal;
-}
-
-.admin-calendar-view strong,
-.block-list strong {
-  color: var(--text);
-}
-
-.admin-availability {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-}
-
-.admin-availability p {
-  margin: 6px 0 0;
-  color: var(--muted-strong);
-}
-
-.admin-availability form {
-  display: grid;
-  grid-template-columns: 160px 210px minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: end;
-}
-
-.admin-availability label {
-  display: grid;
-  gap: 6px;
-  color: var(--muted-strong);
-  font-size: 0.82rem;
-  font-weight: 850;
-}
-
-.block-list {
-  display: grid;
-  gap: 6px;
 }
 
 .product-grid {
@@ -2051,35 +1770,6 @@ button {
   line-height: 1.65;
 }
 
-.contact-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
-  gap: 22px;
-  align-items: start;
-}
-
-.sales-form {
-  display: grid;
-  gap: 16px;
-  padding: 22px;
-}
-
-.sales-form > div {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.sales-form label {
-  display: grid;
-  gap: 8px;
-  font-size: 0.86rem;
-  font-weight: 850;
-}
-
-.sales-form input,
-.sales-form textarea,
-.sales-form select,
 .workspace-search input,
 .command-search input,
 .workspace-command input,
@@ -2092,18 +1782,6 @@ button {
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
   outline: none;
-}
-
-.sales-form input,
-.sales-form select {
-  min-height: 46px;
-  padding: 0 12px;
-}
-
-.sales-form textarea {
-  min-height: 150px;
-  padding: 12px;
-  resize: vertical;
 }
 
 .contact-card {
@@ -2132,44 +1810,6 @@ button {
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 800;
-}
-
-.contact-links {
-  display: grid;
-  gap: 8px;
-}
-
-.contact-links a,
-.contact-links span {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--muted-strong);
-  font-weight: 850;
-}
-
-.contact-links .whatsapp-link {
-  border-color: rgba(74, 222, 128, 0.28);
-  color: var(--success);
-  background: rgba(74, 222, 128, 0.055);
-}
-
-.contact-links span {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.signal-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.signal-list strong {
-  width: 100%;
 }
 
 .not-found-page {
@@ -2281,7 +1921,7 @@ button {
   background: transparent;
 }
 
-.route-fallback {
+.route-loading {
   display: grid;
   min-height: 420px;
   place-items: center;
@@ -3575,45 +3215,8 @@ button {
   background: var(--panel);
 }
 
-.form-state.success {
-  border-color: rgba(74, 222, 128, 0.32);
-}
-
 .form-state.error {
   border-color: rgba(255, 79, 216, 0.34);
-}
-
-.confirmation-panel {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  padding: 14px;
-  border: 1px solid rgba(74, 222, 128, 0.28);
-  border-radius: var(--radius-sm);
-  color: var(--muted-strong);
-  background:
-    linear-gradient(135deg, rgba(74, 222, 128, 0.085), rgba(0, 229, 255, 0.04)),
-    rgba(255, 255, 255, 0.035);
-}
-
-.confirmation-panel svg {
-  color: var(--success);
-}
-
-.confirmation-panel strong {
-  color: var(--text);
-}
-
-.confirmation-panel p {
-  margin: 4px 0;
-  color: var(--muted-strong);
-  line-height: 1.55;
-}
-
-.confirmation-panel span {
-  color: var(--muted);
-  font-size: 0.8rem;
 }
 
 .booking-card {
@@ -3674,7 +3277,6 @@ button {
   .hero,
   .split-section,
   .comparison-section,
-  .contact-layout,
   .docs-layout,
   .workspace-layout {
     grid-template-columns: 1fr;
@@ -3686,7 +3288,6 @@ button {
   .deployment-checklist,
   .date-grid,
   .contact-method-grid,
-  .admin-metrics,
   .module-board-grid,
   .workspace-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3783,17 +3384,11 @@ button {
   .docs-grid,
   .deployment-checklist,
   .footer-columns,
-  .sales-form > div,
   .booking-stepper,
   .date-grid,
   .contact-method-grid,
   .production-slot-grid,
   .booking-success-screen dl div,
-  .admin-toolbar,
-  .admin-booking-card dl,
-  .admin-notes,
-  .admin-availability form,
-  .admin-metrics,
   .workspace-metrics,
   .module-board-grid,
   .assistant-actions {
@@ -3895,12 +3490,6 @@ button {
   }
 
   .module-workflow p {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-calendar-view article > div,
-  .admin-calendar-view p,
-  .block-list p {
     grid-template-columns: 1fr;
   }
 

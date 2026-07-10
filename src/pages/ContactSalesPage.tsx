@@ -1,7 +1,7 @@
-import { AlertCircle, CalendarClock, CheckCircle2, Clock3, Download, Mail, MessageCircle, ShieldCheck } from "lucide-react";
+import { AlertCircle, CalendarClock, CheckCircle2, Download, Mail, MessageCircle, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { contactSignals, products } from "../data/voyd";
+import { products } from "../data/voyd";
 import { Button } from "../components/voyd/Button";
 import { PageTransition } from "../components/voyd/PageTransition";
 import { Reveal } from "../components/voyd/Reveal";
@@ -13,26 +13,6 @@ import {
   createIcsEvent,
   getVisitorTimeZone,
 } from "../config/booking";
-
-type SubmitState = {
-  status: "idle" | "loading" | "success" | "error";
-  message: string;
-};
-
-type LeadForm = {
-  fullName: string;
-  email: string;
-  company: string;
-  phone: string;
-  businessType: string;
-  companySize: string;
-  selectedProduct: string;
-  budgetRange: string;
-  preferredContact: string;
-  message: string;
-  consent: boolean;
-  honeypot: string;
-};
 
 type BookingForm = {
   fullName: string;
@@ -83,7 +63,8 @@ type AvailabilityDate = {
 
 type AvailabilityResponse = {
   ok: boolean;
-  configured: boolean;
+  available: boolean;
+  message?: string;
   timezone: string;
   visitorTimeZone: string;
   durationMinutes: number;
@@ -99,26 +80,6 @@ type BookingSuccess = {
   durationMinutes: number;
   preferredContactMethod: string;
   startsAt: string;
-};
-
-const contactEmail = bookingOwnerEmail;
-const whatsappNumber = bookingWhatsappNumber;
-const whatsappUrl = bookingWhatsappUrl;
-const replyExpectation = "Our team usually replies within one business day.";
-
-const initialLead: LeadForm = {
-  fullName: "",
-  email: "",
-  company: "",
-  phone: "",
-  businessType: "",
-  companySize: "",
-  selectedProduct: "Operating System",
-  budgetRange: "",
-  preferredContact: "",
-  message: "",
-  consent: false,
-  honeypot: "",
 };
 
 const initialBooking: BookingForm = {
@@ -150,8 +111,8 @@ function buildMeta() {
   };
 }
 
-function downloadTextFile(content: string, filename: string, type = "text/calendar;charset=utf-8") {
-  const blob = new Blob([content], { type });
+function downloadTextFile(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -162,24 +123,34 @@ function downloadTextFile(content: string, filename: string, type = "text/calend
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function submitJson<T>(endpoint: string, payload: unknown) {
-  const response = await fetch(endpoint, {
+async function fetchAvailability(visitorTimeZone: string) {
+  const response = await fetch(`/api/booking?visitorTimeZone=${encodeURIComponent(visitorTimeZone)}`);
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data) {
+    return {
+      ok: true,
+      available: false,
+      message: "Booking is temporarily unavailable.",
+      timezone: bookingConfig.timezone,
+      visitorTimeZone,
+      durationMinutes: bookingConfig.durationMinutes,
+      dates: [],
+    } satisfies AvailabilityResponse;
+  }
+  return data as AvailabilityResponse;
+}
+
+async function submitBookingRequest(payload: unknown) {
+  const response = await fetch("/api/booking", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || "Request failed.");
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data) {
+    throw new Error("Booking could not be completed. Please try again.");
   }
-  return data as T;
-}
-
-async function fetchAvailability(visitorTimeZone: string) {
-  const response = await fetch(`/api/availability?visitorTimeZone=${encodeURIComponent(visitorTimeZone)}`);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "Could not load availability.");
-  return data as AvailabilityResponse;
+  return data as { booking: BookingSuccess; ics: string; message: string };
 }
 
 function getProductFromQuery(value: string | null) {
@@ -191,20 +162,19 @@ function getProductFromQuery(value: string | null) {
 export default function ContactSalesPage() {
   const [searchParams] = useSearchParams();
   const visitorTimeZone = useMemo(getVisitorTimeZone, []);
-  const [lead, setLead] = useState<LeadForm>(initialLead);
   const [booking, setBooking] = useState<BookingForm>(initialBooking);
-  const [leadState, setLeadState] = useState<SubmitState>({ status: "idle", message: "" });
-  const [bookingState, setBookingState] = useState<SubmitState>({ status: "idle", message: "" });
-  const [availabilityState, setAvailabilityState] = useState<SubmitState>({ status: "loading", message: "Loading availability..." });
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const [step, setStep] = useState(1);
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "submitting" | "error">("idle");
+  const [submitMessage, setSubmitMessage] = useState("");
   const [successBooking, setSuccessBooking] = useState<BookingSuccess | null>(null);
   const [successIcs, setSuccessIcs] = useState("");
 
   const productOptions = useMemo(() => ["Operating System", ...products.map((product) => product.name)], []);
   const selectedDate = availability?.dates.find((date) => date.dateKey === booking.dateKey);
   const selectedSlot = selectedDate?.slots.find((slot) => slot.slotTime === booking.slotTime);
-  const availableDates = availability?.dates || [];
+  const bookingUnavailable = !availabilityLoading && availability?.available === false;
 
   const summaryMessage = useMemo(() => {
     return [
@@ -229,17 +199,10 @@ export default function ContactSalesPage() {
   }, [booking, selectedSlot, visitorTimeZone]);
 
   const refreshAvailability = async () => {
-    setAvailabilityState({ status: "loading", message: "Loading availability..." });
-    try {
-      const data = await fetchAvailability(visitorTimeZone);
-      setAvailability(data);
-      setAvailabilityState({
-        status: "success",
-        message: data.configured ? "Live availability loaded." : "Live database configuration is missing. Booking submission will be disabled.",
-      });
-    } catch (error) {
-      setAvailabilityState({ status: "error", message: error instanceof Error ? error.message : "Could not load availability." });
-    }
+    setAvailabilityLoading(true);
+    const data = await fetchAvailability(visitorTimeZone);
+    setAvailability(data);
+    setAvailabilityLoading(false);
   };
 
   useEffect(() => {
@@ -249,51 +212,21 @@ export default function ContactSalesPage() {
   useEffect(() => {
     const selectedProduct = getProductFromQuery(searchParams.get("product"));
     if (!selectedProduct) return;
-    setLead((current) => ({ ...current, selectedProduct }));
     setBooking((current) => ({ ...current, selectedProduct }));
   }, [searchParams]);
 
-  const submitLead = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!lead.fullName.trim() || !lead.company.trim() || !lead.message.trim()) {
-      setLeadState({ status: "error", message: "Please complete your name, company, and message." });
-      return;
-    }
-    if (!emailIsValid(lead.email)) {
-      setLeadState({ status: "error", message: "Please enter a valid work email." });
-      return;
-    }
-    if (!lead.businessType || !lead.companySize || !lead.budgetRange || !lead.preferredContact) {
-      setLeadState({ status: "error", message: "Please select business type, company size, budget, and contact method." });
-      return;
-    }
-    if (!lead.consent) {
-      setLeadState({ status: "error", message: "Consent is required before submitting." });
-      return;
-    }
-
-    setLeadState({ status: "loading", message: "Sending request..." });
-    try {
-      const result = await submitJson<{ message?: string }>("/api/contact", { ...lead, ...buildMeta() });
-      setLeadState({ status: "success", message: result.message || `Request sent. ${replyExpectation}` });
-      setLead(initialLead);
-    } catch (error) {
-      setLeadState({ status: "error", message: error instanceof Error ? error.message : "Could not submit request." });
-    }
-  };
-
   const validateBooking = () => {
     if (!booking.dateKey) return "Please choose an available date.";
-    if (!booking.slotTime || !selectedSlot) return "Please choose one available VOYD time.";
+    if (!booking.slotTime || !selectedSlot) return "Please choose an available time.";
     if (selectedSlot.status !== "available") return "This time was just booked. Please choose another available time.";
-    if (!booking.fullName.trim() || !booking.company.trim() || !booking.meetingTopic.trim()) {
-      return "Please complete your name, company, and meeting topic.";
-    }
+    if (!booking.fullName.trim()) return "Please enter your full name.";
     if (!emailIsValid(booking.workEmail)) return "Please enter a valid work email.";
-    if (!booking.phoneOrWhatsapp.trim()) return "Please enter a phone or WhatsApp number.";
+    if (!booking.phoneOrWhatsapp.trim()) return "Please enter your phone or WhatsApp number.";
+    if (!booking.company.trim()) return "Please enter your company.";
     if (!booking.businessType || !booking.companySize || !booking.selectedProduct) return "Please complete the business details.";
-    if (!booking.preferredContactMethod) return "Please choose Email or WhatsApp as the preferred contact method.";
-    if (!booking.consent) return "Consent is required before submitting.";
+    if (!booking.meetingTopic.trim()) return "Please enter a meeting topic.";
+    if (!booking.preferredContactMethod) return "Please choose Email or WhatsApp.";
+    if (!booking.consent) return "Please accept contact consent before submitting.";
     return "";
   };
 
@@ -301,47 +234,42 @@ export default function ContactSalesPage() {
     event.preventDefault();
     const validation = validateBooking();
     if (validation) {
-      setBookingState({ status: "error", message: validation });
+      setSubmitStatus("error");
+      setSubmitMessage(validation);
       if (validation.includes("just booked")) refreshAvailability();
       return;
     }
 
-    setBookingState({ status: "loading", message: "Submitting booking request..." });
+    setSubmitStatus("submitting");
+    setSubmitMessage("");
     try {
-      const result = await submitJson<{
-        booking: BookingSuccess;
-        ics: string;
-        message: string;
-      }>("/api/booking", {
+      const result = await submitBookingRequest({
         ...booking,
         visitorTimeZone,
         ...buildMeta(),
       });
       setSuccessBooking(result.booking);
       setSuccessIcs(result.ics);
-      setBookingState({ status: "success", message: result.message });
+      setSubmitStatus("idle");
+      setSubmitMessage("");
       await refreshAvailability();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not submit booking.";
-      setBookingState({ status: "error", message });
-      if (message.includes("just booked") || message.includes("available")) refreshAvailability();
+      const message = error instanceof Error ? error.message : "Booking could not be completed. Please try again.";
+      setSubmitStatus("error");
+      setSubmitMessage(message.includes("just booked") ? message : "Booking could not be completed. Please try again.");
+      await refreshAvailability();
     }
   };
 
-  const goToStep = (nextStep: number) => {
-    setBookingState({ status: "idle", message: "" });
-    setStep(nextStep);
-  };
-
   const canContinueFromDetails =
-    booking.fullName &&
+    Boolean(booking.fullName) &&
     emailIsValid(booking.workEmail) &&
-    booking.phoneOrWhatsapp &&
-    booking.company &&
-    booking.businessType &&
-    booking.companySize &&
-    booking.selectedProduct &&
-    booking.meetingTopic;
+    Boolean(booking.phoneOrWhatsapp) &&
+    Boolean(booking.company) &&
+    Boolean(booking.businessType) &&
+    Boolean(booking.companySize) &&
+    Boolean(booking.selectedProduct) &&
+    Boolean(booking.meetingTopic);
 
   const successIcsForDownload =
     successIcs ||
@@ -359,138 +287,60 @@ export default function ContactSalesPage() {
   return (
     <PageTransition>
       <main className="page contact-page">
-        <section className="page-hero">
-          <p className="eyebrow">Contact Sales</p>
-          <h1>Bring VOYD a messy workflow. Leave with an operating system plan.</h1>
+        <section className="page-hero single-booking-hero">
+          <p className="eyebrow">Book Discovery Call</p>
+          <h1>Reserve a VOYD discovery call.</h1>
           <p>
-            Submit a qualified request or reserve a real 45-minute VOYD discovery call. Availability follows the
-            official Europe/Berlin schedule and converts every slot into your local timezone.
+            Choose a date, select one official VOYD time, enter your business details, choose how VOYD should confirm,
+            and review the request before submitting.
           </p>
           <div className="contact-hero-actions">
-            <a className="whatsapp-button" href={whatsappUrl} target="_blank" rel="noreferrer">
+            <a className="whatsapp-button" href={bookingWhatsappUrl} target="_blank" rel="noreferrer">
               <MessageCircle size={18} />
               Chat on WhatsApp
             </a>
-            <a className="email-button" href={`mailto:${contactEmail}`}>
+            <a className="email-button" href={`mailto:${bookingOwnerEmail}`}>
               <Mail size={18} />
-              {contactEmail}
+              {bookingOwnerEmail}
             </a>
           </div>
-          <p className="contact-response-note">{replyExpectation}</p>
         </section>
 
-        <section className="contact-layout productized-contact">
+        <section className="section single-booking-section">
           <Reveal>
-            <form className="sales-form" onSubmit={submitLead} noValidate>
-              <input
-                className="hp-field"
-                tabIndex={-1}
-                autoComplete="off"
-                value={lead.honeypot}
-                onChange={(event) => setLead({ ...lead, honeypot: event.target.value })}
-                aria-hidden="true"
-              />
-              <div>
-                <label>
-                  Full name
-                  <input value={lead.fullName} onChange={(event) => setLead({ ...lead, fullName: event.target.value })} placeholder="Alex Morgan" />
-                </label>
-                <label>
-                  Work email
-                  <input value={lead.email} onChange={(event) => setLead({ ...lead, email: event.target.value })} placeholder="alex@company.com" type="email" />
-                </label>
-              </div>
-              <div>
-                <label>
-                  Company
-                  <input value={lead.company} onChange={(event) => setLead({ ...lead, company: event.target.value })} placeholder="Company name" />
-                </label>
-                <label>
-                  Phone optional
-                  <input value={lead.phone} onChange={(event) => setLead({ ...lead, phone: event.target.value })} placeholder="+49 ..." />
-                </label>
-              </div>
-              <div>
-                <label>
-                  Business type
-                  <select value={lead.businessType} onChange={(event) => setLead({ ...lead, businessType: event.target.value })}>
-                    <option value="">Select type</option>
-                    <option>Restaurant / hospitality</option>
-                    <option>Clinic / healthcare</option>
-                    <option>Retail / commerce</option>
-                    <option>Fitness / wellness</option>
-                    <option>Professional services</option>
-                    <option>Internal operations</option>
-                  </select>
-                </label>
-                <label>
-                  Company size
-                  <select value={lead.companySize} onChange={(event) => setLead({ ...lead, companySize: event.target.value })}>
-                    <option value="">Select size</option>
-                    <option>1-10</option>
-                    <option>11-50</option>
-                    <option>51-200</option>
-                    <option>201-1000</option>
-                    <option>1000+</option>
-                  </select>
-                </label>
-              </div>
-              <div>
-                <label>
-                  Selected product
-                  <select value={lead.selectedProduct} onChange={(event) => setLead({ ...lead, selectedProduct: event.target.value })}>
-                    {productOptions.map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Budget range
-                  <select value={lead.budgetRange} onChange={(event) => setLead({ ...lead, budgetRange: event.target.value })}>
-                    <option value="">Select range</option>
-                    <option>Under EUR 5k</option>
-                    <option>EUR 5k-15k</option>
-                    <option>EUR 15k-50k</option>
-                    <option>EUR 50k+</option>
-                    <option>Not sure yet</option>
-                  </select>
-                </label>
-              </div>
-              <label>
-                Preferred contact method
-                <select value={lead.preferredContact} onChange={(event) => setLead({ ...lead, preferredContact: event.target.value })}>
-                  <option value="">Select method</option>
-                  <option>Email</option>
-                  <option>WhatsApp</option>
-                </select>
-              </label>
-              <label>
-                Message
-                <textarea value={lead.message} onChange={(event) => setLead({ ...lead, message: event.target.value })} placeholder="Describe the workflow, software problem, users, and desired outcome." />
-              </label>
-              <label className="consent-row">
-                <input type="checkbox" checked={lead.consent} onChange={(event) => setLead({ ...lead, consent: event.target.checked })} />
-                I agree to be contacted by VOYD about this request.
-              </label>
-              <Button type="submit" icon={false}>Send request</Button>
-              {leadState.status !== "idle" ? (
-                <div className={`form-state ${leadState.status}`}>
-                  {leadState.status === "success" ? <CheckCircle2 size={16} /> : null}
-                  {leadState.status === "error" ? <AlertCircle size={16} /> : null}
-                  {leadState.message}
-                </div>
-              ) : null}
-            </form>
-          </Reveal>
-
-          <Reveal delay={0.1}>
-            <aside className="contact-card booking-card production-booking-card">
+            <div className="contact-card booking-card single-booking-card">
               <div className="calendar-placeholder">
                 <CalendarClock size={22} />
-                <strong>Book a 45-minute VOYD discovery call</strong>
-                <p>Official VOYD availability: Monday through Saturday at 10:00 and 22:00 Europe/Berlin.</p>
+                <strong>45-minute VOYD discovery call</strong>
+                <p>Official availability: Monday through Saturday at 10:00 and 22:00 Europe/Berlin.</p>
                 <small>Your timezone: {visitorTimeZone}</small>
               </div>
+
+              {availabilityLoading ? (
+                <div className="booking-unavailable-card">
+                  <CalendarClock size={24} />
+                  <strong>Checking availability.</strong>
+                  <p>VOYD is preparing the current booking calendar.</p>
+                </div>
+              ) : null}
+
+              {bookingUnavailable ? (
+                <div className="booking-unavailable-card">
+                  <AlertCircle size={24} />
+                  <strong>Booking is temporarily unavailable.</strong>
+                  <p>Please contact VOYD directly by email or WhatsApp.</p>
+                  <div className="contact-hero-actions">
+                    <a className="whatsapp-button" href={bookingWhatsappUrl} target="_blank" rel="noreferrer">
+                      <MessageCircle size={16} />
+                      Chat on WhatsApp
+                    </a>
+                    <a className="email-button" href={`mailto:${bookingOwnerEmail}`}>
+                      <Mail size={16} />
+                      Email VOYD
+                    </a>
+                  </div>
+                </div>
+              ) : null}
 
               {successBooking ? (
                 <div className="booking-success-screen">
@@ -498,6 +348,7 @@ export default function ContactSalesPage() {
                   <div>
                     <strong>Booking request received</strong>
                     <p>Your selected time has been reserved. VOYD will confirm the call using your preferred contact method.</p>
+                    <p>Our team usually replies within one business day.</p>
                   </div>
                   <dl>
                     <div>
@@ -533,17 +384,11 @@ export default function ContactSalesPage() {
                     <Download size={15} />
                     Download calendar event
                   </button>
-                  <a className="whatsapp-button" href={whatsappUrl} target="_blank" rel="noreferrer">
-                    <MessageCircle size={16} />
-                    Contact VOYD on WhatsApp
-                  </a>
-                  <a className="email-button" href={`mailto:${contactEmail}?subject=${encodeURIComponent(`Additional information for ${successBooking.bookingReference}`)}`}>
-                    <Mail size={16} />
-                    Send additional information by email
-                  </a>
                 </div>
-              ) : (
-                <form className="booking-form production-booking-form" onSubmit={submitBooking} noValidate>
+              ) : null}
+
+              {!availabilityLoading && !bookingUnavailable && !successBooking ? (
+                <form className="booking-form single-booking-form" onSubmit={submitBooking} noValidate>
                   <input
                     className="hp-field"
                     tabIndex={-1}
@@ -553,12 +398,12 @@ export default function ContactSalesPage() {
                     aria-hidden="true"
                   />
                   <div className="booking-stepper" aria-label="Booking steps">
-                    {["Date", "Time", "Details", "Contact", "Review"].map((label, index) => (
+                    {["Date", "Time", "Business details", "Communication", "Review"].map((label, index) => (
                       <button
                         key={label}
                         type="button"
                         className={step === index + 1 ? "is-active" : step > index + 1 ? "is-complete" : ""}
-                        onClick={() => goToStep(index + 1)}
+                        onClick={() => setStep(index + 1)}
                       >
                         <span>{index + 1}</span>
                         {label}
@@ -566,20 +411,11 @@ export default function ContactSalesPage() {
                     ))}
                   </div>
 
-                  {availabilityState.status !== "idle" ? (
-                    <div className={`form-state ${availabilityState.status}`}>
-                      {availabilityState.status === "success" ? <CheckCircle2 size={16} /> : null}
-                      {availabilityState.status === "error" ? <AlertCircle size={16} /> : null}
-                      {availabilityState.status === "loading" ? <Clock3 size={16} /> : null}
-                      {availabilityState.message}
-                    </div>
-                  ) : null}
-
                   {step === 1 ? (
                     <div className="booking-step-panel">
-                      <strong>Step 1: Choose date</strong>
+                      <strong>Date</strong>
                       <div className="date-grid">
-                        {availableDates.map((date) => (
+                        {(availability?.dates || []).map((date) => (
                           <button
                             key={date.dateKey}
                             type="button"
@@ -596,13 +432,12 @@ export default function ContactSalesPage() {
                           </button>
                         ))}
                       </div>
-                      <button className="download-ics" type="button" onClick={refreshAvailability}>Refresh availability</button>
                     </div>
                   ) : null}
 
                   {step === 2 ? (
                     <div className="booking-step-panel">
-                      <strong>Step 2: Choose time</strong>
+                      <strong>Time</strong>
                       {selectedDate ? (
                         <div className="slot-grid production-slot-grid" role="list" aria-label="Available discovery slots">
                           {selectedDate.slots.map((slot) => (
@@ -626,8 +461,8 @@ export default function ContactSalesPage() {
                       ) : (
                         <div className="empty-state compact-empty">
                           <span />
-                          <strong>No date selected</strong>
-                          <small>Choose a date first to see the two official VOYD times.</small>
+                          <strong>Choose a date first</strong>
+                          <small>Then select one of the two official VOYD times.</small>
                         </div>
                       )}
                     </div>
@@ -635,7 +470,7 @@ export default function ContactSalesPage() {
 
                   {step === 3 ? (
                     <div className="booking-step-panel">
-                      <strong>Step 3: Enter business and contact details</strong>
+                      <strong>Business details</strong>
                       <label>
                         Full name
                         <input value={booking.fullName} onChange={(event) => setBooking({ ...booking, fullName: event.target.value })} placeholder="Alex Morgan" />
@@ -687,15 +522,15 @@ export default function ContactSalesPage() {
                         Meeting topic
                         <input value={booking.meetingTopic} onChange={(event) => setBooking({ ...booking, meetingTopic: event.target.value })} />
                       </label>
-                      <button className="download-ics" type="button" disabled={!canContinueFromDetails} onClick={() => goToStep(4)}>
-                        Continue to contact method
+                      <button className="download-ics" type="button" disabled={!canContinueFromDetails} onClick={() => setStep(4)}>
+                        Continue
                       </button>
                     </div>
                   ) : null}
 
                   {step === 4 ? (
                     <div className="booking-step-panel">
-                      <strong>Step 4: Choose preferred communication method</strong>
+                      <strong>Communication method</strong>
                       <div className="contact-method-grid">
                         {(["Email", "WhatsApp"] as const).map((method) => (
                           <button
@@ -718,7 +553,7 @@ export default function ContactSalesPage() {
 
                   {step === 5 ? (
                     <div className="booking-step-panel">
-                      <strong>Step 5: Review and submit</strong>
+                      <strong>Review</strong>
                       <textarea className="summary-message" value={summaryMessage} readOnly aria-label="Booking summary message" />
                       <label>
                         Optional additional message
@@ -736,39 +571,19 @@ export default function ContactSalesPage() {
                         <ShieldCheck size={16} />
                         <span>The booking is submitted through the VOYD backend. WhatsApp is only your preferred confirmation method.</span>
                       </div>
-                      <Button type="submit" icon={false}>Submit booking request</Button>
+                      <Button type="submit" icon={false}>{submitStatus === "submitting" ? "Submitting..." : "Submit booking request"}</Button>
                     </div>
                   ) : null}
 
-                  {bookingState.status !== "idle" ? (
-                    <div className={`form-state ${bookingState.status}`}>
-                      {bookingState.status === "success" ? <CheckCircle2 size={16} /> : null}
-                      {bookingState.status === "error" ? <AlertCircle size={16} /> : null}
-                      {bookingState.status === "loading" ? <Clock3 size={16} /> : null}
-                      {bookingState.message}
+                  {submitStatus === "error" ? (
+                    <div className="form-state error">
+                      <AlertCircle size={16} />
+                      {submitMessage}
                     </div>
                   ) : null}
                 </form>
-              )}
-
-              <div className="contact-links">
-                <a href={`mailto:${contactEmail}`}>
-                  <Mail size={16} />
-                  {contactEmail}
-                </a>
-                <a className="whatsapp-link" href={whatsappUrl} target="_blank" rel="noreferrer">
-                  <MessageCircle size={16} />
-                  Chat on WhatsApp
-                </a>
-                <span>{whatsappNumber}</span>
-              </div>
-              <div className="signal-list">
-                <strong>Useful context</strong>
-                {contactSignals.map((signal) => (
-                  <span key={signal}>{signal}</span>
-                ))}
-              </div>
-            </aside>
+              ) : null}
+            </div>
           </Reveal>
         </section>
       </main>

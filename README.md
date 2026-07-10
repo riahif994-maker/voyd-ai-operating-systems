@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-For the contact and booking API:
+For the booking API:
 
 ```bash
 cp .env.example .env
@@ -25,15 +25,10 @@ npm run api
 
 ## Production booking setup
 
-The frontend submits Contact Sales and Booking requests to:
+The booking wizard uses one backend endpoint:
 
-- `POST /api/contact`
-- `GET /api/availability`
-- `POST /api/booking`
-- `GET /api/admin/bookings`
-- `PATCH /api/admin/bookings`
-- `POST /api/admin/blocks`
-- `DELETE /api/admin/blocks`
+- `GET /api/booking` for public availability
+- `POST /api/booking` for reservation submission
 
 The booking system uses the official VOYD schedule in `src/config/booking-runtime.mjs`:
 
@@ -49,8 +44,6 @@ Required environment variables:
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=server_only_service_role_key
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=public_anon_key
 VOYD_LEADS_EMAIL=voyd.contact1@gmail.com
 VOYD_FROM_EMAIL=VOYD <voyd.contact1@gmail.com>
 RESEND_API_KEY=your_resend_api_key
@@ -70,11 +63,7 @@ Production contact destinations:
 
 1. Create a Supabase project.
 2. Run `supabase/migrations/20260710153000_voyd_booking_system.sql`.
-3. In Authentication, enable email magic links.
-4. Add the production site URL to allowed redirect URLs.
-5. Ensure the only admin owner email is `voyd.contact1@gmail.com`.
-
-The admin route is `/admin/bookings`. It is not linked in public navigation. The owner requests a magic link, opens it from the owner inbox, and the backend verifies the Supabase session email before returning booking data.
+3. Keep the service-role key server-side only.
 
 ## Resend setup
 
