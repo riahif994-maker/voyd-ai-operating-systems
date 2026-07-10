@@ -3,11 +3,11 @@ import { ApiError, PUBLIC_UNAVAILABLE_MESSAGE, escapeHtml } from "./http.mjs";
 import { bookingConfig, bookingOwnerEmail, buildSlotDisplay } from "../src/config/booking-runtime.mjs";
 
 export function hasResendConfig() {
-  return Boolean(process.env.RESEND_API_KEY);
+  return Boolean(process.env.RESEND_API_KEY && process.env.VOYD_FROM_EMAIL);
 }
 
 function fromAddress() {
-  return process.env.VOYD_FROM_EMAIL || `VOYD <${bookingOwnerEmail}>`;
+  return process.env.VOYD_FROM_EMAIL;
 }
 
 async function sendResendEmail({ to, subject, html, attachments }) {
