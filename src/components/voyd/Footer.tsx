@@ -37,7 +37,8 @@ export function Footer() {
           <Link to="/pricing">Pricing</Link>
           <Link to="/company">Company</Link>
           <Link to="/contact-sales">Contact Sales</Link>
-          <a href="mailto:sales@voyd.ai">sales@voyd.ai</a>
+          <a href="mailto:voyd.contact1@gmail.com">voyd.contact1@gmail.com</a>
+          <a href="https://wa.me/4917686606120">WhatsApp Business</a>
         </div>
       </div>
       <div className="footer-cta">

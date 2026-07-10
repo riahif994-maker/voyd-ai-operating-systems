@@ -3,6 +3,8 @@ import { readFileSync, existsSync } from "node:fs";
 import { Buffer } from "node:buffer";
 
 const port = Number(process.env.VOYD_API_PORT || 8787);
+const productionContactEmail = "voyd.contact1@gmail.com";
+const replyExpectation = "Our team usually replies within one business day.";
 
 function loadDotEnv() {
   if (!existsSync(".env")) return;
@@ -52,7 +54,14 @@ async function readBody(req) {
   for await (const chunk of req) {
     chunks.push(chunk);
   }
-  return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  const raw = Buffer.concat(chunks).toString("utf8") || "{}";
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const error = new Error("Request body must be valid JSON.");
+    error.statusCode = 400;
+    throw error;
+  }
 }
 
 function leadRows(payload) {
@@ -106,8 +115,8 @@ function createIcs({ fullName, email, selectedProduct, meetingTopic, slotIso }) 
 
 async function sendResendEmail(email) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.VOYD_FROM_EMAIL || "VOYD <onboarding@resend.dev>";
-  if (!apiKey || !process.env.VOYD_LEADS_EMAIL) {
+  const from = process.env.VOYD_FROM_EMAIL || `VOYD <${productionContactEmail}>`;
+  if (!apiKey) {
     return { delivered: false, reason: "missing_credentials" };
   }
 
@@ -128,6 +137,7 @@ async function sendResendEmail(email) {
 }
 
 async function sendLeadEmails(payload, meta) {
+  const leadDestination = productionContactEmail;
   const ownerBody = brandedEmail(
     "New VOYD sales lead",
     "A prospect submitted the Contact Sales form.",
@@ -136,11 +146,11 @@ async function sendLeadEmails(payload, meta) {
   const prospectBody = brandedEmail(
     "Thanks for contacting VOYD",
     `Thanks ${payload.fullName}. We received your request for ${payload.selectedProduct}.`,
-    `<p>Expected response time: one business day.</p><p>VOYD will review your business type, selected product, budget range, and message before replying with next steps.</p><p>Contact: sales@voyd.ai</p>`,
+    `<p>${replyExpectation}</p><p>VOYD will review your business type, selected product, budget range, and message before replying with next steps.</p><p>Contact: ${productionContactEmail}</p><p>WhatsApp Business: +49 176 86606120</p>`,
   );
 
   const owner = await sendResendEmail({
-    to: process.env.VOYD_LEADS_EMAIL,
+    to: leadDestination,
     subject: `VOYD lead: ${payload.company} - ${payload.selectedProduct}`,
     html: ownerBody,
   });
@@ -155,6 +165,7 @@ async function sendLeadEmails(payload, meta) {
 }
 
 async function sendBookingEmails(payload, meta, ics) {
+  const leadDestination = productionContactEmail;
   const ownerBody = brandedEmail(
     "New VOYD booking request",
     "A prospect selected a discovery slot.",
@@ -172,7 +183,7 @@ async function sendBookingEmails(payload, meta, ics) {
   };
 
   const owner = await sendResendEmail({
-    to: process.env.VOYD_LEADS_EMAIL,
+    to: leadDestination,
     subject: `VOYD booking: ${payload.company} - ${payload.selectedProduct}`,
     html: ownerBody,
     attachments: [attachment],
@@ -270,7 +281,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 400, { ok: false, error: validationError });
     }
 
-    if (!process.env.RESEND_API_KEY || !process.env.VOYD_LEADS_EMAIL) {
+    if (!process.env.RESEND_API_KEY) {
       safeLog(req.url === "/api/contact" ? "lead" : "booking", payload, meta);
       const ics = req.url === "/api/booking" ? createIcs(payload) : undefined;
       return json(res, 202, {
@@ -290,6 +301,9 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, { ok: true, delivered: true, result });
   } catch (error) {
     console.error("[VOYD API error]", error);
+    if (error.statusCode === 400) {
+      return json(res, 400, { ok: false, error: error.message });
+    }
     return json(res, 500, { ok: false, error: "VOYD API failed to process the request." });
   }
 });

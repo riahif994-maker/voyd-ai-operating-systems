@@ -1,4 +1,4 @@
-import { CalendarClock, CheckCircle2, Code2, Download, Mail, Send } from "lucide-react";
+import { AlertCircle, CalendarClock, CheckCircle2, Download, Mail, MessageCircle } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { contactSignals, products } from "../data/voyd";
 import { Button } from "../components/voyd/Button";
@@ -35,6 +35,11 @@ type BookingForm = {
   slotIso: string;
   slotLabel: string;
 };
+
+const contactEmail = "voyd.contact1@gmail.com";
+const whatsappNumber = "+49 176 86606120";
+const whatsappUrl = "https://wa.me/4917686606120";
+const replyExpectation = "Our team usually replies within one business day.";
 
 const initialLead: LeadForm = {
   fullName: "",
@@ -168,7 +173,7 @@ export default function ContactSalesPage() {
         status: "success",
         delivered: result.delivered,
         message: result.delivered
-          ? "Request sent. VOYD will reply within one business day."
+          ? `Request sent. ${replyExpectation}`
           : result.message || "Local testing mode: request accepted, but email credentials are not configured.",
       });
       if (result.delivered) setLead(initialLead);
@@ -200,7 +205,7 @@ export default function ContactSalesPage() {
         status: "success",
         delivered: result.delivered,
         message: result.delivered
-          ? "Booking request sent with calendar attachment."
+          ? `Booking request sent with calendar attachment. ${replyExpectation}`
           : result.message || "Local testing mode: booking accepted, but email credentials are not configured.",
       });
     } catch (error) {
@@ -218,6 +223,17 @@ export default function ContactSalesPage() {
             Submit a qualified request or book a discovery slot. Email delivery is handled server-side when credentials
             are configured; local development clearly reports fallback mode.
           </p>
+          <div className="contact-hero-actions">
+            <a className="whatsapp-button" href={whatsappUrl} target="_blank" rel="noreferrer">
+              <MessageCircle size={18} />
+              Chat on WhatsApp
+            </a>
+            <a className="email-button" href={`mailto:${contactEmail}`}>
+              <Mail size={18} />
+              {contactEmail}
+            </a>
+          </div>
+          <p className="contact-response-note">{replyExpectation}</p>
         </section>
 
         <section className="contact-layout productized-contact">
@@ -318,7 +334,18 @@ export default function ContactSalesPage() {
               {leadState.status !== "idle" ? (
                 <div className={`form-state ${leadState.status}`}>
                   {leadState.status === "success" ? <CheckCircle2 size={16} /> : null}
+                  {leadState.status === "error" ? <AlertCircle size={16} /> : null}
                   {leadState.message}
+                </div>
+              ) : null}
+              {leadState.status === "success" ? (
+                <div className="confirmation-panel">
+                  <CheckCircle2 size={20} />
+                  <div>
+                    <strong>Request received</strong>
+                    <p>{replyExpectation}</p>
+                    <span>Notification destination: {contactEmail}</span>
+                  </div>
                 </div>
               ) : null}
             </form>
@@ -380,23 +407,31 @@ export default function ContactSalesPage() {
                 {bookingState.status !== "idle" ? (
                   <div className={`form-state ${bookingState.status}`}>
                     {bookingState.status === "success" ? <CheckCircle2 size={16} /> : null}
+                    {bookingState.status === "error" ? <AlertCircle size={16} /> : null}
                     {bookingState.message}
+                  </div>
+                ) : null}
+                {bookingState.status === "success" ? (
+                  <div className="confirmation-panel">
+                    <CheckCircle2 size={20} />
+                    <div>
+                      <strong>Booking request received</strong>
+                      <p>{replyExpectation}</p>
+                      <span>Calendar fallback is available when email delivery is not configured.</span>
+                    </div>
                   </div>
                 ) : null}
               </form>
               <div className="contact-links">
-                <a href="mailto:sales@voyd.ai">
+                <a href={`mailto:${contactEmail}`}>
                   <Mail size={16} />
-                  sales@voyd.ai
+                  {contactEmail}
                 </a>
-                <a href="https://github.com/riahif994-maker">
-                  <Code2 size={16} />
-                  GitHub
+                <a className="whatsapp-link" href={whatsappUrl} target="_blank" rel="noreferrer">
+                  <MessageCircle size={16} />
+                  Chat on WhatsApp
                 </a>
-                <a href="https://www.linkedin.com">
-                  <Send size={16} />
-                  LinkedIn
-                </a>
+                <span>{whatsappNumber}</span>
               </div>
               <div className="signal-list">
                 <strong>Useful context</strong>

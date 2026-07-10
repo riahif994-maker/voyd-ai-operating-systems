@@ -168,6 +168,515 @@ function buildAiResponse(config: WorkspaceConfig, records: WorkspaceRecord[], pr
   return `Interactive AI simulation: I reviewed ${records.length} ${config.recordNamePlural}, the ${config.chart.title.toLowerCase()} chart, and the current filters. Recommended action: ${config.aiPrompts[0]?.result ?? "review the highest-priority records first"}`;
 }
 
+type ModuleProfile = {
+  title: string;
+  summary: string;
+  highlights: Array<{ label: string; value: string; note: string }>;
+  workflow: Array<{ label: string; status: string; owner: string }>;
+  actions: string[];
+};
+
+const moduleProfiles: Record<string, Record<string, ModuleProfile>> = {
+  "restaurant-os": {
+    "Live Orders": {
+      title: "Service floor command",
+      summary: "Orders connect directly to tables, kitchen stations, receipts, and staff assignments.",
+      highlights: [
+        { label: "Active tickets", value: "18", note: "5 need expo review" },
+        { label: "Fastest station", value: "Pantry", note: "8 minute average" },
+        { label: "Revenue open", value: "EUR 2.9K", note: "unclosed checks" },
+      ],
+      workflow: [
+        { label: "Table 12 tasting menu", status: "Mains firing", owner: "Grill" },
+        { label: "Delivery #8842", status: "Ready", owner: "Expo" },
+        { label: "Table 3 allergy note", status: "Locked", owner: "Manager" },
+      ],
+      actions: ["Balance kitchen stations", "Print receipts", "Create supplier note"],
+    },
+    Tables: {
+      title: "Floor and table state",
+      summary: "Hosts can see seating, reservations, service phase, allergies, and payment state in one place.",
+      highlights: [
+        { label: "Occupied", value: "18/22", note: "4 tables turning soon" },
+        { label: "Reserved next", value: "7", note: "19:30 arrival wave" },
+        { label: "Attention", value: "T3", note: "allergy note active" },
+      ],
+      workflow: [
+        { label: "Window table reset", status: "Cleaning", owner: "Host" },
+        { label: "Bar seats", status: "Available", owner: "Floor lead" },
+        { label: "Private room", status: "Reserved", owner: "Manager" },
+      ],
+      actions: ["Seat next party", "Notify server", "Hold table"],
+    },
+    "Kitchen Queue": {
+      title: "Kitchen production board",
+      summary: "Kitchen timing, station load, order status, and ingredient pressure stay connected to the dining room.",
+      highlights: [
+        { label: "Grill load", value: "6", note: "12 minute station time" },
+        { label: "Expo ready", value: "3", note: "runner needed" },
+        { label: "Ingredient risk", value: "Seabass", note: "switch upsell after 21:00" },
+      ],
+      workflow: [
+        { label: "Fire Table 12 mains", status: "Now", owner: "Grill" },
+        { label: "Plate birthday dessert", status: "Next", owner: "Pastry" },
+        { label: "Courier bag check", status: "Ready", owner: "Expo" },
+      ],
+      actions: ["Rebalance stations", "86 menu item", "Alert floor"],
+    },
+    Reservations: {
+      title: "Reservations and guest flow",
+      summary: "Bookings, deposits, notes, VIP flags, and table pacing are linked to the live service plan.",
+      highlights: [
+        { label: "Arrivals", value: "31", note: "today" },
+        { label: "No-show risk", value: "2", note: "confirm by SMS" },
+        { label: "Deposits", value: "EUR 640", note: "held for groups" },
+      ],
+      workflow: [
+        { label: "Meyer group", status: "Confirmed", owner: "Host" },
+        { label: "Private room", status: "Deposit paid", owner: "Manager" },
+        { label: "Late cancellation", status: "Waitlist fill", owner: "AI Manager" },
+      ],
+      actions: ["Confirm arrivals", "Fill cancellation", "Assign tables"],
+    },
+    Menu: {
+      title: "Menu intelligence",
+      summary: "Menu items connect margin, prep time, inventory, and server recommendations.",
+      highlights: [
+        { label: "Best margin", value: "Pasta", note: "recommend at dinner" },
+        { label: "Prep pressure", value: "Seabass", note: "limited stock" },
+        { label: "Upsell", value: "Dessert", note: "birthday table ready" },
+      ],
+      workflow: [
+        { label: "Truffle pasta", status: "Promote", owner: "Servers" },
+        { label: "Seabass", status: "Limit after 21:00", owner: "Kitchen" },
+        { label: "Caprese salad", status: "Lunch push", owner: "AI Manager" },
+      ],
+      actions: ["Update server script", "Forecast menu mix", "Create stock order"],
+    },
+    "Inventory Alerts": {
+      title: "Ingredient and supplier control",
+      summary: "Low-stock ingredients are tied to menu availability, supplier orders, and finance impact.",
+      highlights: [
+        { label: "Critical", value: "2", note: "seabass and burrata" },
+        { label: "Supplier ETA", value: "08:30", note: "tomorrow" },
+        { label: "Menu impact", value: "3 items", note: "watch dinner service" },
+      ],
+      workflow: [
+        { label: "Burrata reorder", status: "Draft", owner: "Purchasing" },
+        { label: "Mint transfer", status: "Approved", owner: "Bar lead" },
+        { label: "Seabass limit", status: "Active", owner: "Chef" },
+      ],
+      actions: ["Send supplier PO", "Adjust menu", "Notify staff"],
+    },
+    Receipts: {
+      title: "Receipts and finance close",
+      summary: "Receipts, open checks, discounts, refunds, and payment methods roll into daily finance.",
+      highlights: [
+        { label: "Open checks", value: "7", note: "EUR 1.4K" },
+        { label: "Discounts", value: "3", note: "manager approved" },
+        { label: "Close status", value: "84%", note: "shift ready" },
+      ],
+      workflow: [
+        { label: "Table 7 receipt", status: "Dessert pending", owner: "Server" },
+        { label: "Delivery receipts", status: "Exported", owner: "Finance" },
+        { label: "Refund review", status: "None", owner: "Manager" },
+      ],
+      actions: ["Close shift", "Export receipts", "Review discounts"],
+    },
+    "AI Menu": {
+      title: "AI Restaurant Manager",
+      summary: "AI connects service pressure, inventory, reservations, menu mix, and staff decisions.",
+      highlights: [
+        { label: "Top signal", value: "20:00 peak", note: "prepare stations" },
+        { label: "Next action", value: "Limit seabass", note: "stock protection" },
+        { label: "Staff plan", value: "Add runner", note: "expo ready queue" },
+      ],
+      workflow: [
+        { label: "Dinner rush brief", status: "Generated", owner: "AI Manager" },
+        { label: "Supplier note", status: "Draft", owner: "Purchasing" },
+        { label: "Server talking points", status: "Ready", owner: "Floor lead" },
+      ],
+      actions: ["Generate shift brief", "Draft supplier order", "Suggest staff moves"],
+    },
+  },
+  "retail-os": {
+    Products: {
+      title: "Supermarket product master",
+      summary: "Every SKU links barcode, aisle, price, supplier, stock, promotions, and return history.",
+      highlights: [
+        { label: "Active SKUs", value: "8,420", note: "42 departments" },
+        { label: "Price checks", value: "36", note: "needs approval" },
+        { label: "Barcode gaps", value: "4", note: "blocking POS sync" },
+      ],
+      workflow: [
+        { label: "Organic bananas 1kg", status: "Low stock", owner: "Inventory" },
+        { label: "Whole milk 1L", status: "Active", owner: "Dairy lead" },
+        { label: "Coffee capsules", status: "Return review", owner: "Support" },
+      ],
+      actions: ["Sync catalog", "Print shelf labels", "Update barcode"],
+    },
+    Barcode: {
+      title: "Barcode and shelf-label control",
+      summary: "Scans validate product, promotion, register price, and shelf location before checkout issues appear.",
+      highlights: [
+        { label: "Scans today", value: "12.8K", note: "all lanes" },
+        { label: "Mismatch", value: "3", note: "household shelf labels" },
+        { label: "Pending labels", value: "18", note: "print batch ready" },
+      ],
+      workflow: [
+        { label: "Coffee capsules label", status: "Mismatch", owner: "Floor lead" },
+        { label: "Banana barcode", status: "Verified", owner: "Produce" },
+        { label: "Dairy promotion", status: "Queued", owner: "Marketing" },
+      ],
+      actions: ["Print labels", "Block discount", "Verify scan"],
+    },
+    POS: {
+      title: "POS lane operations",
+      summary: "Cash registers, self-checkout, refunds, discounts, and supervisor approvals share live context.",
+      highlights: [
+        { label: "Open lanes", value: "9", note: "6 self-checkout" },
+        { label: "Supervisor calls", value: "2", note: "return and age check" },
+        { label: "Basket average", value: "EUR 31", note: "stable" },
+      ],
+      workflow: [
+        { label: "Lane 02 return", status: "Supervisor", owner: "Manager" },
+        { label: "Self-checkout age check", status: "Waiting", owner: "Floor lead" },
+        { label: "Lane 01 card batch", status: "Healthy", owner: "POS" },
+      ],
+      actions: ["Open lane", "Approve return", "Export register"],
+    },
+    Stock: {
+      title: "Stock and replenishment",
+      summary: "Shelf, backroom, warehouse, supplier, and sales velocity drive reorder decisions.",
+      highlights: [
+        { label: "Low-stock SKUs", value: "21", note: "5 critical" },
+        { label: "Backroom tasks", value: "14", note: "before 18:00" },
+        { label: "Shrink risk", value: "Produce", note: "watch bananas" },
+      ],
+      workflow: [
+        { label: "Bananas transfer", status: "Required", owner: "Warehouse" },
+        { label: "Chicken supplier hold", status: "Critical", owner: "Purchasing" },
+        { label: "Bakery evening run", status: "Scheduled", owner: "Bakery" },
+      ],
+      actions: ["Create transfer", "Generate reorder", "Assign shelf task"],
+    },
+    Warehouse: {
+      title: "Warehouse movement",
+      summary: "Inbound goods, transfers, cold-chain checks, and shelf replenishment are tracked together.",
+      highlights: [
+        { label: "Inbound pallets", value: "18", note: "4 cold-chain" },
+        { label: "Transfers", value: "11", note: "floor replenishment" },
+        { label: "Exceptions", value: "2", note: "supplier delay" },
+      ],
+      workflow: [
+        { label: "Freshline produce", status: "Receiving", owner: "Warehouse" },
+        { label: "Dairy cold chain", status: "Passed", owner: "Quality" },
+        { label: "Meat delivery", status: "Delayed", owner: "Purchasing" },
+      ],
+      actions: ["Receive stock", "Create transfer", "Escalate supplier"],
+    },
+    Suppliers: {
+      title: "Supplier performance",
+      summary: "Supplier lead times, product quality, costs, and stock risk inform purchasing decisions.",
+      highlights: [
+        { label: "At-risk supplier", value: "Florin Foods", note: "meat delivery" },
+        { label: "Open POs", value: "46", note: "6 urgent" },
+        { label: "Cost change", value: "Dairy", note: "review price" },
+      ],
+      workflow: [
+        { label: "Florin Foods call", status: "Required", owner: "Purchasing" },
+        { label: "Freshline reorder", status: "Draft", owner: "Inventory AI" },
+        { label: "Alpen Dairy price", status: "Review", owner: "Finance" },
+      ],
+      actions: ["Draft PO", "Contact supplier", "Review terms"],
+    },
+    Promotions: {
+      title: "Promotion and pricing control",
+      summary: "Promotions connect shelf signage, POS rules, margins, suppliers, and customer segments.",
+      highlights: [
+        { label: "Live promos", value: "28", note: "5 expire today" },
+        { label: "Blocked rule", value: "1", note: "label mismatch" },
+        { label: "Margin guard", value: "Active", note: "dairy threshold" },
+      ],
+      workflow: [
+        { label: "Coffee capsule promo", status: "Paused", owner: "Marketing" },
+        { label: "Dairy weekend offer", status: "Approved", owner: "Finance" },
+        { label: "Bakery bundle", status: "Testing", owner: "Store lead" },
+      ],
+      actions: ["Approve promo", "Print signage", "Sync POS rule"],
+    },
+    Customers: {
+      title: "Customer and loyalty signals",
+      summary: "Customers, baskets, loyalty behavior, returns, and promotion response inform store actions.",
+      highlights: [
+        { label: "Loyalty scans", value: "3.4K", note: "today" },
+        { label: "Repeat baskets", value: "41%", note: "weekly household" },
+        { label: "Support cases", value: "12", note: "3 return related" },
+      ],
+      workflow: [
+        { label: "Household segment", status: "Promo ready", owner: "Marketing" },
+        { label: "Return cluster", status: "Investigating", owner: "Support" },
+        { label: "High-value baskets", status: "Report", owner: "Analytics" },
+      ],
+      actions: ["Create segment", "Draft message", "Review returns"],
+    },
+    Returns: {
+      title: "Returns and exceptions",
+      summary: "Return patterns connect receipts, POS discounts, shelf labels, suppliers, and customer notes.",
+      highlights: [
+        { label: "Returns today", value: "38", note: "3.4%" },
+        { label: "Primary reason", value: "Label mismatch", note: "household" },
+        { label: "Refund review", value: "2", note: "supervisor" },
+      ],
+      workflow: [
+        { label: "Coffee capsules", status: "Pattern found", owner: "Support" },
+        { label: "Lane 02 refund", status: "Supervisor", owner: "Manager" },
+        { label: "Shelf label batch", status: "Print", owner: "Floor lead" },
+      ],
+      actions: ["Approve refund", "Fix labels", "Create supplier note"],
+    },
+    "Cash Register": {
+      title: "Cash register close",
+      summary: "Registers, cash drawers, card batches, discounts, returns, and shift close are reconciled.",
+      highlights: [
+        { label: "Drawers", value: "7/9", note: "balanced" },
+        { label: "Card batch", value: "EUR 42K", note: "ready" },
+        { label: "Exceptions", value: "3", note: "manager review" },
+      ],
+      workflow: [
+        { label: "Lane 01 close", status: "Ready", owner: "Cashier" },
+        { label: "Lane 02 exception", status: "Review", owner: "Manager" },
+        { label: "Self-checkout batch", status: "Pending", owner: "Finance" },
+      ],
+      actions: ["Close register", "Export batch", "Review exception"],
+    },
+    "Inventory AI": {
+      title: "Inventory AI planner",
+      summary: "AI proposes reorder, transfer, promotion, and shrink-control actions from supermarket operations.",
+      highlights: [
+        { label: "Plan generated", value: "18:00", note: "evening replenishment" },
+        { label: "Top action", value: "Transfer bananas", note: "warehouse to floor" },
+        { label: "Risk", value: "Meat supplier", note: "call required" },
+      ],
+      workflow: [
+        { label: "Reorder proposal", status: "Draft", owner: "Inventory AI" },
+        { label: "Transfer plan", status: "Ready", owner: "Warehouse" },
+        { label: "Promotion guardrail", status: "Active", owner: "Finance" },
+      ],
+      actions: ["Generate plan", "Create PO", "Assign transfer"],
+    },
+  },
+  crm: {
+    Leads: {
+      title: "Lead intake and qualification",
+      summary: "Inbound leads become companies, meetings, tasks, documents, and pipeline opportunities.",
+      highlights: [
+        { label: "New leads", value: "84", note: "AI scored" },
+        { label: "Qualified", value: "48", note: "ready for meeting" },
+        { label: "Source", value: "Website", note: "highest intent" },
+      ],
+      workflow: [
+        { label: "Luma Retail", status: "Discovery", owner: "Sales AI" },
+        { label: "Arc Dental", status: "Proposal", owner: "Noah" },
+        { label: "Studio54 Fitness", status: "Demo", owner: "Mira" },
+      ],
+      actions: ["Qualify leads", "Book meeting", "Create company"],
+    },
+    Companies: {
+      title: "Company intelligence",
+      summary: "Accounts hold contacts, deals, documents, invoices, meetings, tasks, and automation history.",
+      highlights: [
+        { label: "Active companies", value: "312", note: "42 strategic" },
+        { label: "Missing contacts", value: "8", note: "enrich before proposal" },
+        { label: "Open documents", value: "19", note: "awaiting approval" },
+      ],
+      workflow: [
+        { label: "Northline Logistics", status: "Security review", owner: "Mira" },
+        { label: "Arc Dental Group", status: "ROI call", owner: "Noah" },
+        { label: "Bistro Nova", status: "Kickoff", owner: "Success" },
+      ],
+      actions: ["Summarize account", "Add contact", "Generate brief"],
+    },
+    Pipeline: {
+      title: "Pipeline command board",
+      summary: "Every deal stage connects meetings, tasks, documents, invoices, risk, and forecast.",
+      highlights: [
+        { label: "Pipeline", value: "EUR 1.8M", note: "weighted by stage" },
+        { label: "Negotiation", value: "18", note: "security blockers" },
+        { label: "Next touches", value: "124", note: "AI queued" },
+      ],
+      workflow: [
+        { label: "Northline Logistics", status: "Negotiation", owner: "Mira" },
+        { label: "Arc Dental Group", status: "Proposal", owner: "Noah" },
+        { label: "Bistro Nova", status: "Won", owner: "Success" },
+      ],
+      actions: ["Move stage", "Draft follow-up", "Update forecast"],
+    },
+    Meetings: {
+      title: "Meetings and follow-up",
+      summary: "Meetings create notes, decisions, tasks, documents, invoices, and automation triggers.",
+      highlights: [
+        { label: "Today", value: "9", note: "3 executive calls" },
+        { label: "Unwritten notes", value: "2", note: "AI can summarize" },
+        { label: "Follow-ups", value: "16", note: "queued" },
+      ],
+      workflow: [
+        { label: "Arc Dental ROI call", status: "Today 14:30", owner: "Noah" },
+        { label: "Northline security", status: "Prep needed", owner: "Mira" },
+        { label: "Retail OS demo", status: "Booked", owner: "Sales AI" },
+      ],
+      actions: ["Generate agenda", "Summarize meeting", "Create tasks"],
+    },
+    Tasks: {
+      title: "Task and next-action system",
+      summary: "Tasks are tied to deals, companies, invoices, documents, meetings, and automation.",
+      highlights: [
+        { label: "Due today", value: "26", note: "7 high priority" },
+        { label: "Blocked", value: "4", note: "document approval" },
+        { label: "Automated", value: "38", note: "AI generated" },
+      ],
+      workflow: [
+        { label: "Send security answers", status: "High", owner: "Mira" },
+        { label: "Approve proposal PDF", status: "Blocked", owner: "Noah" },
+        { label: "Invoice deposit", status: "Draft", owner: "Finance" },
+      ],
+      actions: ["Prioritize tasks", "Assign owner", "Create automation"],
+    },
+    Invoices: {
+      title: "Commercial invoices",
+      summary: "Invoices connect proposals, signed deals, payment status, kickoff, and finance workflow.",
+      highlights: [
+        { label: "Draft invoices", value: "7", note: "ready from deals" },
+        { label: "Awaiting payment", value: "EUR 84K", note: "3 accounts" },
+        { label: "Deposit due", value: "Bistro Nova", note: "kickoff dependency" },
+      ],
+      workflow: [
+        { label: "Bistro Nova deposit", status: "Draft", owner: "Finance" },
+        { label: "Arc Dental milestone", status: "Pending", owner: "Noah" },
+        { label: "Northline enterprise", status: "Terms review", owner: "Legal" },
+      ],
+      actions: ["Generate invoice", "Send reminder", "Link document"],
+    },
+    Documents: {
+      title: "Documents and approvals",
+      summary: "Proposals, scopes, security answers, invoices, and contracts stay attached to company context.",
+      highlights: [
+        { label: "Open docs", value: "19", note: "5 need approval" },
+        { label: "Most viewed", value: "Arc proposal", note: "opened 4 times" },
+        { label: "Security docs", value: "3", note: "Northline blocker" },
+      ],
+      workflow: [
+        { label: "Retail OS proposal", status: "Needs approval", owner: "Noah" },
+        { label: "Security answers", status: "Drafted", owner: "Mira" },
+        { label: "Implementation scope", status: "Ready", owner: "Delivery" },
+      ],
+      actions: ["Approve document", "Generate PDF", "Attach to deal"],
+    },
+    Automation: {
+      title: "Revenue automation",
+      summary: "Automation turns lead status, meetings, documents, invoices, and tasks into connected sequences.",
+      highlights: [
+        { label: "Active sequences", value: "18", note: "sales and finance" },
+        { label: "Queued emails", value: "124", note: "approval required" },
+        { label: "Trigger", value: "Proposal opened", note: "create follow-up" },
+      ],
+      workflow: [
+        { label: "Proposal opened 3x", status: "Follow-up", owner: "AI Sales" },
+        { label: "Invoice overdue", status: "Reminder", owner: "Finance" },
+        { label: "Meeting completed", status: "Tasks", owner: "Automation" },
+      ],
+      actions: ["Enable sequence", "Review emails", "Create trigger"],
+    },
+    "AI Sales Assistant": {
+      title: "AI Sales Assistant",
+      summary: "AI reads company context, deal risk, documents, meetings, and tasks to recommend the next commercial action.",
+      highlights: [
+        { label: "Top risk", value: "Procurement delay", note: "Northline" },
+        { label: "Best next step", value: "Security answers", note: "send today" },
+        { label: "Drafts ready", value: "12", note: "need approval" },
+      ],
+      workflow: [
+        { label: "Northline risk summary", status: "Generated", owner: "AI Sales" },
+        { label: "Arc Dental ROI email", status: "Draft", owner: "Noah" },
+        { label: "Luma discovery plan", status: "Ready", owner: "Sales AI" },
+      ],
+      actions: ["Generate account brief", "Draft follow-up", "Explain risk"],
+    },
+  },
+};
+
+function getModuleProfile(productId: string, activeModule: string, config: WorkspaceConfig): ModuleProfile {
+  return (
+    moduleProfiles[productId]?.[activeModule] ?? {
+      title: `${activeModule} workspace`,
+      summary: `${activeModule} is connected to ${config.recordNamePlural}, analytics, automation, and AI assistance.`,
+      highlights: config.metrics.slice(0, 3).map((metric) => ({
+        label: metric.label,
+        value: metric.value,
+        note: metric.comparison,
+      })),
+      workflow: config.records.slice(0, 3).map((record) => ({
+        label: record.title,
+        status: record.status,
+        owner: record.owner,
+      })),
+      actions: config.aiPrompts.slice(0, 3).map((prompt) => prompt.label),
+    }
+  );
+}
+
+function FlagshipModuleBoard({
+  productId,
+  activeModule,
+  config,
+  onAction,
+}: {
+  productId: string;
+  activeModule: string;
+  config: WorkspaceConfig;
+  onAction: (action: string) => void;
+}) {
+  const profile = getModuleProfile(productId, activeModule, config);
+
+  return (
+    <section className="workspace-panel flagship-module-board" aria-label={`${activeModule} operating board`}>
+      <div className="panel-heading">
+        <div>
+          <small>Connected operating screen</small>
+          <h3>{profile.title}</h3>
+        </div>
+        <span>{activeModule}</span>
+      </div>
+      <p>{profile.summary}</p>
+      <div className="module-board-grid">
+        {profile.highlights.map((item) => (
+          <article key={item.label} className="module-signal-card">
+            <small>{item.label}</small>
+            <strong>{item.value}</strong>
+            <span>{item.note}</span>
+          </article>
+        ))}
+      </div>
+      <div className="module-workflow">
+        {profile.workflow.map((item) => (
+          <p key={`${item.label}-${item.status}`}>
+            <span>{item.label}</span>
+            <strong>{item.status}</strong>
+            <em>{item.owner}</em>
+          </p>
+        ))}
+      </div>
+      <div className="module-actions">
+        {profile.actions.map((action) => (
+          <button key={action} type="button" onClick={() => onAction(action)}>
+            {action}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ProductSpecificPanel({
   config,
   records,
@@ -398,7 +907,7 @@ function ProductSpecificPanel({
             <h3>Restaurant service: {activeModule}</h3>
           </div>
           <button type="button" onClick={() => onToast("AI Restaurant Manager prioritized kitchen, allergy, and stock actions.", "success")}>
-            Run Restaurant AI
+            AI Restaurant Manager
           </button>
         </div>
         <div className="flagship-grid">
@@ -513,10 +1022,12 @@ export function ProductWorkspace({ product, onClose }: ProductWorkspaceProps) {
     setAiMessages([
       {
         role: "assistant",
-        text: `Interactive AI simulation ready. I can summarize ${config.recordNamePlural}, predict trends, draft updates, and explain risks using this seeded workspace data.`,
+        text: isProduction
+          ? `Interactive AI simulation ready. I can summarize ${config.recordNamePlural}, predict trends, draft updates, and explain risks using this production experience workspace.`
+          : `${product.name} is currently in ${phase.label}. This interactive AI simulation uses seeded preview data while the product is expanded inside the VOYD ecosystem.`,
       },
     ]);
-  }, [config, product.id]);
+  }, [config, isProduction, phase.label, product.id, product.name]);
 
   useEffect(() => {
     window.localStorage.setItem(storageKey(product.id), JSON.stringify(records));
@@ -786,6 +1297,18 @@ export function ProductWorkspace({ product, onClose }: ProductWorkspaceProps) {
 
           <section className="workspace-layout">
             <div className="workspace-primary">
+              {isProduction ? (
+                <FlagshipModuleBoard
+                  productId={product.id}
+                  activeModule={activeModule}
+                  config={config}
+                  onAction={(action) => {
+                    addToast(`${action} queued in ${activeModule}.`, "info");
+                    runAi(action);
+                  }}
+                />
+              ) : null}
+
               <div className="workspace-panel analytics-panel">
                 <div className="panel-heading">
                   <div>
