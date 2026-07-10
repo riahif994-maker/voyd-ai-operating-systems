@@ -189,6 +189,14 @@ function buildEmailSubject(booking: BookingForm, slot: RequestSlot | undefined) 
   return `VOYD Call Request — ${booking.selectedProduct} — ${slot?.client.date || ""} ${slot?.client.time || ""}`;
 }
 
+function buildGmailComposeUrl(subject: string, body: string) {
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(bookingOwnerEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function buildMailtoUrl(subject: string, body: string) {
+  return `mailto:${encodeURIComponent(bookingOwnerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 export default function ContactSalesPage() {
   const [searchParams] = useSearchParams();
   const productFromQuery = getProductFromQuery(searchParams.get("product"));
@@ -207,6 +215,7 @@ export default function ContactSalesPage() {
   const selectedSlot = requestSlots.find((slot) => slot.slotTime === booking.slotTime);
   const preparedMessage = useMemo(() => buildRequestMessage(booking, selectedSlot, clientTimeZone), [booking, selectedSlot, clientTimeZone]);
   const emailSubject = useMemo(() => buildEmailSubject(booking, selectedSlot), [booking, selectedSlot]);
+  const fallbackEmailUrl = useMemo(() => buildMailtoUrl(emailSubject, preparedMessage), [emailSubject, preparedMessage]);
 
   useEffect(() => {
     if (!productFromQuery) return;
@@ -283,11 +292,11 @@ export default function ContactSalesPage() {
     const subject = buildEmailSubject(requestBooking, selectedSlot);
 
     if (method === "Email") {
-      const href = `mailto:${bookingOwnerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
-      const notice = "Your email application opened with the completed request. Please press Send to share it with VOYD.";
+      const href = buildGmailComposeUrl(subject, message);
+      const notice = "Gmail opened with your request ready to send. Please press Send to share it with VOYD.";
       window.sessionStorage.setItem(storageKey, JSON.stringify({ booking: requestBooking, step, notice }));
       setOpenedNotice(notice);
-      window.location.href = href;
+      window.open(href, "_blank", "noopener,noreferrer");
       return;
     }
 
@@ -559,12 +568,16 @@ export default function ContactSalesPage() {
                     </div>
                     <div className="success-actions">
                       <Button type="button" icon={false} variant={booking.preferredContactMethod === "Email" ? "primary" : "secondary"} onClick={() => openComposer("Email")}>
-                        Continue to Email
+                        Open in Gmail
                       </Button>
                       <Button type="button" icon={false} variant={booking.preferredContactMethod === "WhatsApp" ? "primary" : "secondary"} onClick={() => openComposer("WhatsApp")}>
                         Continue to WhatsApp
                       </Button>
                     </div>
+                    <small>
+                      Gmail will open with your request ready to send.{" "}
+                      <a href={fallbackEmailUrl}>Use another email app</a>
+                    </small>
                     <small>Recipient: {booking.preferredContactMethod === "WhatsApp" ? bookingWhatsappNumber : bookingOwnerEmail}</small>
                   </div>
                 ) : null}
