@@ -1,0 +1,1 @@
+import{T as e,w as t}from"./index-BZKyMDu5.js";var n=e();function r({children:e}){return(0,n.jsx)(t.div,{initial:{opacity:0,y:10},animate:{opacity:1,y:0},exit:{opacity:0,y:-8},transition:{duration:.34,ease:[.22,1,.36,1]},children:e})}export{r as t};
