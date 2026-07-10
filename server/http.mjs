@@ -1,4 +1,4 @@
-export const PUBLIC_UNAVAILABLE_MESSAGE = "Online booking is temporarily unavailable. Please contact VOYD by WhatsApp or email.";
+export const PUBLIC_UNAVAILABLE_MESSAGE = "Online request handling is not active.";
 export const PUBLIC_SLOT_CONFLICT_MESSAGE = "This time was just booked. Please choose another available time.";
 export const PUBLIC_NETWORK_FAILURE_MESSAGE = "We could not complete your booking. Please try again.";
 

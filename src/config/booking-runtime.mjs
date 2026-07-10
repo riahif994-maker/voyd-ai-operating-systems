@@ -117,6 +117,7 @@ export function formatDateTimeInZone(isoOrDate, timeZone, options = {}) {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
     timeZoneName: "short",
     ...options,
   }).format(date);
@@ -138,6 +139,7 @@ export function formatTimeOnlyInZone(isoOrDate, timeZone) {
     timeZone,
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
     timeZoneName: "short",
   }).format(date);
 }

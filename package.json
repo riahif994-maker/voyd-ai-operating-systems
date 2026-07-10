@@ -7,8 +7,7 @@
     "api": "node server/voyd-api.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "verify:booking": "node scripts/verify-booking.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "framer-motion": "^12.42.2",

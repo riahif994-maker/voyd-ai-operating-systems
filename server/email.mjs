@@ -127,10 +127,10 @@ export async function sendClientBookingConfirmation(booking, icsContent) {
   }
 
   const display = buildSlotDisplay(booking.starts_at, booking.client_timezone);
-  const subject = `Your VOYD discovery call is confirmed - ${display.berlinDate}`;
+  const subject = `Your VOYD discovery call request - ${display.berlinDate}`;
   const html = brandedEmail(
-    "Booking confirmed",
-    `Hi ${booking.full_name}, your VOYD discovery call is reserved. VOYD will confirm using your preferred contact method (${booking.preferred_contact_method}).`,
+    "Booking request received",
+    `Hi ${booking.full_name}, VOYD received your discovery call request. The team will confirm using your preferred contact method (${booking.preferred_contact_method}).`,
     rows({
       "Booking reference": booking.booking_reference,
       "Selected product": booking.selected_product,

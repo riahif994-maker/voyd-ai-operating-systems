@@ -137,7 +137,7 @@ function bookingResponse(booking, ics, notification) {
       durationMinutes: bookingConfig.durationMinutes,
     },
     ics,
-    message: "Your meeting time is reserved. VOYD will confirm the call using your preferred contact method.",
+    message: "Your booking request was received.",
   };
 }
 

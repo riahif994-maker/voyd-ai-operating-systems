@@ -20,9 +20,13 @@ export const bookingStatuses = runtime.bookingStatuses as readonly ["new", "conf
 
 export const getClientTimeZone = runtime.getClientTimeZone as () => string;
 export const isValidTimeZone = runtime.isValidTimeZone as (timeZone: string) => boolean;
+export const addDaysToDateKey = runtime.addDaysToDateKey as (dateKey: string, days: number) => string;
+export const dateKeyInTimeZone = runtime.dateKeyInTimeZone as (date: Date, timeZone: string) => string;
+export const dateKeyIsWorkingDay = runtime.dateKeyIsWorkingDay as (dateKey: string) => boolean;
 export const formatDateOnlyInZone = runtime.formatDateOnlyInZone as (isoOrDate: string | Date, timeZone: string) => string;
 export const formatTimeOnlyInZone = runtime.formatTimeOnlyInZone as (isoOrDate: string | Date, timeZone: string) => string;
 export const formatDateTimeInZone = runtime.formatDateTimeInZone as (isoOrDate: string | Date, timeZone: string, options?: Intl.DateTimeFormatOptions) => string;
+export const zonedTimeToUtc = runtime.zonedTimeToUtc as (dateKey: string, time: string, timeZone?: string) => Date;
 export const buildSlotDisplay = runtime.buildSlotDisplay as (startsAtIso: string, clientTimeZone: string) => {
   clientDate: string;
   clientTime: string;

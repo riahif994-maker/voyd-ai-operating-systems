@@ -71,7 +71,7 @@ export async function getAvailability(rawClientTimeZone = "UTC", now = new Date(
     return {
       ok: true,
       available: false,
-      message: "Online booking is temporarily unavailable. Please contact VOYD by WhatsApp or email.",
+      message: "Online request handling is not active.",
       voydTimezone: bookingConfig.timezone,
       clientTimeZone,
       durationMinutes: bookingConfig.durationMinutes,
@@ -131,7 +131,7 @@ export async function getAvailability(rawClientTimeZone = "UTC", now = new Date(
 export async function findAvailableSlot(dateKey, slotTime, clientTimeZone) {
   const availability = await getAvailability(clientTimeZone);
   if (!availability.available) {
-    throw new ApiError(503, "Online booking is temporarily unavailable. Please contact VOYD by WhatsApp or email.", "booking_unavailable");
+    throw new ApiError(503, "Online request handling is not active.", "booking_unavailable");
   }
   const slot = availability.dates.flatMap((date) => date.slots).find((item) => item.dateKey === dateKey && item.slotTime === slotTime);
   if (!slot) throw new ApiError(400, "Please choose an available date and time.", "invalid_or_past_slot");
