@@ -970,6 +970,538 @@ button {
   font-size: 0.95rem;
 }
 
+.production-booking-card {
+  gap: 18px;
+}
+
+.booking-stepper {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.booking-stepper button {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.035);
+  cursor: pointer;
+}
+
+.booking-stepper span {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.booking-stepper button.is-active {
+  border-color: rgba(0, 229, 255, 0.34);
+  color: var(--text);
+  background: rgba(0, 229, 255, 0.07);
+}
+
+.booking-stepper button.is-complete span {
+  color: #06120b;
+  background: var(--success);
+}
+
+.booking-step-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.booking-step-panel > strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.date-grid,
+.contact-method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.date-grid button,
+.contact-method-grid button,
+.production-slot-grid button {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.045);
+  cursor: pointer;
+}
+
+.date-grid button {
+  display: grid;
+  gap: 5px;
+  min-height: 88px;
+  padding: 12px;
+  text-align: left;
+}
+
+.date-grid button:disabled,
+.production-slot-grid button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.date-grid button.is-selected,
+.contact-method-grid button.is-selected,
+.production-slot-grid button.is-selected {
+  border-color: rgba(109, 40, 255, 0.62);
+  box-shadow: 0 0 0 1px rgba(109, 40, 255, 0.22), 0 18px 50px rgba(109, 40, 255, 0.13);
+  background: rgba(109, 40, 255, 0.12);
+}
+
+.date-grid span,
+.production-slot-grid strong,
+.contact-method-grid span {
+  color: var(--text);
+  font-weight: 950;
+}
+
+.date-grid small,
+.production-slot-grid small,
+.contact-method-grid small,
+.date-grid em,
+.production-slot-grid em {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.date-grid em {
+  color: var(--secondary);
+}
+
+.production-slot-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.production-slot-grid button {
+  display: grid;
+  gap: 5px;
+  min-height: 106px;
+  padding: 13px;
+  text-align: left;
+}
+
+.production-slot-grid button span {
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+}
+
+.contact-method-grid button {
+  display: grid;
+  gap: 7px;
+  min-height: 106px;
+  padding: 14px;
+  text-align: left;
+}
+
+.contact-method-grid svg {
+  color: var(--secondary);
+}
+
+.summary-message {
+  min-height: 260px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.secure-booking-note {
+  display: flex;
+  align-items: start;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  border-radius: var(--radius-sm);
+  color: var(--muted-strong);
+  background: rgba(74, 222, 128, 0.055);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.secure-booking-note svg {
+  flex: 0 0 auto;
+  color: var(--success);
+}
+
+.compact-empty {
+  padding: 22px;
+}
+
+.booking-success-screen {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at top right, rgba(74, 222, 128, 0.1), transparent 30%),
+    rgba(255, 255, 255, 0.045);
+}
+
+.booking-success-screen > svg {
+  color: var(--success);
+}
+
+.booking-success-screen strong {
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.booking-success-screen p {
+  margin: 6px 0 0;
+  color: var(--muted-strong);
+  line-height: 1.6;
+}
+
+.booking-success-screen dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.booking-success-screen dl div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.booking-success-screen dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.booking-success-screen dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.admin-auth-shell {
+  display: grid;
+  place-items: start center;
+}
+
+.admin-auth-card {
+  width: min(520px, 100%);
+  gap: 14px;
+}
+
+.admin-auth-card > svg {
+  color: var(--secondary);
+}
+
+.admin-auth-card > strong,
+.admin-availability h2 {
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.admin-hero .download-ics {
+  width: fit-content;
+}
+
+.admin-dashboard {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-metrics article,
+.admin-booking-card,
+.admin-calendar-view article,
+.admin-availability {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.028)),
+    rgba(10, 13, 20, 0.82);
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-metrics article {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.admin-metrics small,
+.admin-booking-head small,
+.admin-booking-card dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-metrics strong {
+  color: var(--text);
+  font-size: 1.8rem;
+}
+
+.admin-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.admin-toolbar input,
+.admin-toolbar select,
+.admin-availability input,
+.admin-availability select,
+.admin-notes textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  color: var(--text);
+  background: transparent;
+  outline: none;
+}
+
+.admin-toolbar select,
+.admin-availability input,
+.admin-availability select,
+.admin-notes textarea {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.admin-toolbar > div {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-toolbar button,
+.admin-actions button,
+.admin-actions a,
+.admin-availability button,
+.block-list button,
+.admin-notes button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.045);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.admin-toolbar button.is-active {
+  border-color: rgba(0, 229, 255, 0.34);
+  background: rgba(0, 229, 255, 0.08);
+}
+
+.admin-booking-list,
+.admin-calendar-view {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-booking-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.admin-booking-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-booking-head h2 {
+  margin: 4px 0;
+  color: var(--text);
+  font-size: 1.15rem;
+}
+
+.admin-booking-head p {
+  margin: 0;
+  color: var(--muted-strong);
+}
+
+.admin-status {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted-strong);
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 0.74rem;
+  font-weight: 950;
+}
+
+.admin-status-new,
+.admin-status-confirmed {
+  border-color: rgba(74, 222, 128, 0.25);
+  color: var(--success);
+}
+
+.admin-status-cancelled,
+.admin-status-no_show {
+  border-color: rgba(255, 79, 216, 0.28);
+  color: var(--accent-color);
+}
+
+.admin-booking-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.admin-booking-card dl div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.032);
+}
+
+.admin-booking-card dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.admin-booking-card a {
+  color: var(--secondary);
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-notes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.admin-notes textarea {
+  min-height: 72px;
+  padding: 10px;
+}
+
+.admin-calendar-view article {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.admin-calendar-view article > div,
+.admin-calendar-view p,
+.block-list p {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-calendar-view p,
+.block-list p {
+  margin: 0;
+  padding: 9px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-calendar-view span,
+.admin-calendar-view em,
+.block-list span,
+.block-list em {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.admin-calendar-view strong,
+.block-list strong {
+  color: var(--text);
+}
+
+.admin-availability {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.admin-availability p {
+  margin: 6px 0 0;
+  color: var(--muted-strong);
+}
+
+.admin-availability form {
+  display: grid;
+  grid-template-columns: 160px 210px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.admin-availability label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted-strong);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.block-list {
+  display: grid;
+  gap: 6px;
+}
+
 .product-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3152,6 +3684,9 @@ button {
   .layer-grid,
   .principle-grid,
   .deployment-checklist,
+  .date-grid,
+  .contact-method-grid,
+  .admin-metrics,
   .module-board-grid,
   .workspace-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3249,6 +3784,16 @@ button {
   .deployment-checklist,
   .footer-columns,
   .sales-form > div,
+  .booking-stepper,
+  .date-grid,
+  .contact-method-grid,
+  .production-slot-grid,
+  .booking-success-screen dl div,
+  .admin-toolbar,
+  .admin-booking-card dl,
+  .admin-notes,
+  .admin-availability form,
+  .admin-metrics,
   .workspace-metrics,
   .module-board-grid,
   .assistant-actions {
@@ -3350,6 +3895,12 @@ button {
   }
 
   .module-workflow p {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-calendar-view article > div,
+  .admin-calendar-view p,
+  .block-list p {
     grid-template-columns: 1fr;
   }
 

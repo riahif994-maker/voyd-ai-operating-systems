@@ -1275,7 +1275,7 @@ export function ProductWorkspace({ product, onClose }: ProductWorkspaceProps) {
               <Plus size={16} />
               {isProduction ? `New ${config.recordName}` : `Preview ${config.recordName}`}
             </button>
-            {!isProduction ? <a href="/contact-sales">Request access</a> : null}
+            {!isProduction ? <a href={`/contact-sales?product=${encodeURIComponent(product.name)}`}>Request access</a> : null}
           </div>
 
           {!isProduction ? (
@@ -1455,7 +1455,7 @@ export function ProductWorkspace({ product, onClose }: ProductWorkspaceProps) {
                     </div>
                   </div>
                   <p>{product.name} is currently being expanded as part of the VOYD ecosystem roadmap.</p>
-                  <a href="/contact-sales">Book discovery call</a>
+                  <a href={`/contact-sales?product=${encodeURIComponent(product.name)}`}>Book discovery call</a>
                 </div>
               ) : null}
 
