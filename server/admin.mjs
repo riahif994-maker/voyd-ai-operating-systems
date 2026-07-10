@@ -1,6 +1,8 @@
 import { ApiError, limitString } from "./http.mjs";
 import { supabaseRest } from "./supabase.mjs";
+import { runBookingNotifications, requestMeta } from "./booking.mjs";
 import { bookingConfig, bookingStatuses, dateKeyIsWorkingDay, zonedTimeToUtc } from "../src/config/booking-runtime.mjs";
+import { createIcsEvent } from "../src/config/booking-runtime.mjs";
 
 const activeStatuses = ["new", "confirmed"];
 
@@ -10,6 +12,11 @@ export async function listAdminBookings() {
     supabaseRest("blocked_booking_slots?select=*&order=starts_at.asc"),
   ]);
   return { ok: true, bookings: bookings || [], blocks: blocks || [] };
+}
+
+export async function listAdminBlocks() {
+  const blocks = await supabaseRest("blocked_booking_slots?select=*&order=starts_at.asc");
+  return { ok: true, blocks: blocks || [] };
 }
 
 async function assertSlotIsFree(startsAtIso, excludeBookingId) {
@@ -95,4 +102,35 @@ export async function deleteAdminBlock(payload) {
   if (!id) throw new ApiError(400, "Block id is required.", "missing_block_id");
   await supabaseRest(`blocked_booking_slots?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
   return { ok: true };
+}
+
+export async function retryOwnerNotification(payload) {
+  const id = limitString(payload.id, 80, "Booking id");
+  if (!id) throw new ApiError(400, "Booking id is required.", "missing_booking_id");
+
+  const records = await supabaseRest(`bookings?select=*&id=eq.${encodeURIComponent(id)}`);
+  const booking = records?.[0];
+  if (!booking) throw new ApiError(404, "Booking not found.", "booking_not_found");
+
+  const ics = createIcsEvent({
+    reference: booking.booking_reference,
+    fullName: booking.full_name,
+    email: booking.work_email,
+    selectedProduct: booking.selected_product,
+    meetingTopic: booking.meeting_topic,
+    startsAtIso: booking.starts_at,
+  });
+  const notification = await runBookingNotifications(
+    booking,
+    requestMeta({ sourcePage: booking.source_page || "", referrer: booking.referrer || "" }),
+    ics,
+  );
+  return {
+    ok: true,
+    booking: notification.booking,
+    ownerNotificationSent: notification.ownerSent,
+    clientConfirmationSent: notification.clientSent,
+    ownerNotificationStatus: notification.ownerStatus,
+    clientNotificationStatus: notification.clientStatus,
+  };
 }

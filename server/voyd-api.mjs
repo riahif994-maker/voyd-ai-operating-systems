@@ -3,8 +3,10 @@ import { Buffer } from "node:buffer";
 import { existsSync, readFileSync } from "node:fs";
 import availabilityHandler from "../api/availability.mjs";
 import bookingHandler from "../api/booking.mjs";
+import healthBookingHandler from "../api/health/booking.mjs";
 import adminBookingsHandler from "../api/admin/bookings.mjs";
 import adminBlocksHandler from "../api/admin/blocks.mjs";
+import adminNotificationRetryHandler from "../api/admin/notifications/retry.mjs";
 
 function loadDotEnv() {
   if (!existsSync(".env")) return;
@@ -27,8 +29,10 @@ const port = Number(process.env.VOYD_API_PORT || 8787);
 const routes = {
   "/api/availability": availabilityHandler,
   "/api/booking": bookingHandler,
+  "/api/health/booking": healthBookingHandler,
   "/api/admin/bookings": adminBookingsHandler,
   "/api/admin/blocks": adminBlocksHandler,
+  "/api/admin/notifications/retry": adminNotificationRetryHandler,
 };
 
 async function readRawBody(req) {

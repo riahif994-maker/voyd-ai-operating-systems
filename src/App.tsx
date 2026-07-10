@@ -65,7 +65,7 @@ function App() {
       <Navigation onOpenCommand={openCommand} />
       <CommandPalette open={commandOpen} onClose={closeCommand} onLaunchProduct={launchProduct} />
 
-      <Suspense fallback={<div className="route-fallback">Loading VOYD workspace...</div>}>
+      <Suspense fallback={<div className="route-loading">Loading VOYD workspace...</div>}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<PlatformPage onLaunchWorkspace={launchProduct} />} />

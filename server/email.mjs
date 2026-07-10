@@ -6,8 +6,24 @@ export function hasResendConfig() {
   return Boolean(process.env.RESEND_API_KEY && process.env.VOYD_FROM_EMAIL);
 }
 
-function fromAddress() {
-  return process.env.VOYD_FROM_EMAIL;
+export function configuredSender() {
+  return process.env.VOYD_FROM_EMAIL || "";
+}
+
+export function senderEmailAddress(sender = configuredSender()) {
+  const match = String(sender).match(/<([^>]+)>/);
+  return (match?.[1] || sender).trim().toLowerCase();
+}
+
+export function resendMode() {
+  if (!hasResendConfig()) return "unconfigured";
+  return senderEmailAddress().endsWith("@resend.dev") ? "test" : "production";
+}
+
+export function safeNotificationError(error) {
+  if (error instanceof ApiError) return error.code;
+  if (error?.code) return String(error.code);
+  return "notification_failed";
 }
 
 async function sendResendEmail({ to, subject, html, attachments }) {
@@ -20,11 +36,11 @@ async function sendResendEmail({ to, subject, html, attachments }) {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: fromAddress(), to, subject, html, attachments }),
+    body: JSON.stringify({ from: configuredSender(), to, subject, html, attachments }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    console.error("[VOYD resend error]", { status: response.status, message: data?.message });
+    console.error("[VOYD resend error]", { status: response.status, message: data?.message || data?.name || "delivery_failed" });
     throw new ApiError(503, PUBLIC_UNAVAILABLE_MESSAGE, "email_delivery_failed");
   }
   return { id: data.id };
@@ -95,15 +111,21 @@ export async function sendOwnerBookingNotification(booking, meta, icsContent) {
       "Private admin booking link": { html: `<a style="color:#00e5ff" href="${escapeHtml(adminUrl)}">${escapeHtml(adminUrl)}</a>` },
     }),
   );
-  return sendResendEmail({
-    to: process.env.VOYD_LEADS_EMAIL || bookingOwnerEmail,
+  const recipient = process.env.VOYD_LEADS_EMAIL || bookingOwnerEmail;
+  await sendResendEmail({
+    to: recipient,
     subject,
     html,
     attachments: icsAttachment(icsContent),
   });
+  return { sent: true, status: "sent" };
 }
 
 export async function sendClientBookingConfirmation(booking, icsContent) {
+  if (resendMode() !== "production") {
+    return { sent: false, status: "skipped" };
+  }
+
   const display = buildSlotDisplay(booking.starts_at, booking.client_timezone);
   const subject = `Your VOYD discovery call is confirmed - ${display.berlinDate}`;
   const html = brandedEmail(
@@ -121,10 +143,11 @@ export async function sendClientBookingConfirmation(booking, icsContent) {
       "VOYD WhatsApp": { html: `<a style="color:#00e5ff" href="https://wa.me/4917686606120">+49 176 86606120</a>` },
     }),
   );
-  return sendResendEmail({
+  await sendResendEmail({
     to: booking.work_email,
     subject,
     html,
     attachments: icsAttachment(icsContent),
   });
+  return { sent: true, status: "sent" };
 }

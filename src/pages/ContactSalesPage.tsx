@@ -157,7 +157,14 @@ async function submitBookingRequest(payload: unknown) {
     const message = typeof data?.error === "string" ? data.error : networkFailureMessage;
     throw new Error(message);
   }
-  return data as { booking: BookingSuccess; ics: string; message: string; clientConfirmationEmailSent: boolean };
+  return data as {
+    booking: BookingSuccess;
+    ics: string;
+    message: string;
+    ownerNotificationSent: boolean;
+    clientConfirmationSent: boolean;
+    clientConfirmationEmailSent: boolean;
+  };
 }
 
 function getProductFromQuery(value: string | null) {
@@ -178,6 +185,7 @@ export default function ContactSalesPage() {
   const [submitError, setSubmitError] = useState("");
   const [successBooking, setSuccessBooking] = useState<BookingSuccess | null>(null);
   const [successIcs, setSuccessIcs] = useState("");
+  const [ownerNotificationSent, setOwnerNotificationSent] = useState(true);
   const [clientConfirmationEmailSent, setClientConfirmationEmailSent] = useState(false);
   const submitLock = useRef(false);
 
@@ -262,7 +270,9 @@ export default function ContactSalesPage() {
       });
       setSuccessBooking(result.booking);
       setSuccessIcs(result.ics);
-      setClientConfirmationEmailSent(result.clientConfirmationEmailSent);
+      setOwnerNotificationSent(result.ownerNotificationSent);
+      setClientConfirmationEmailSent(result.clientConfirmationSent || result.clientConfirmationEmailSent);
+      await refreshAvailability();
     } catch (error) {
       const message = error instanceof Error ? error.message : networkFailureMessage;
       setSubmitError(message);
@@ -347,6 +357,7 @@ export default function ContactSalesPage() {
                   <div>
                     <strong>Booking confirmed</strong>
                     <p>Your meeting time is reserved. VOYD will confirm the call using your preferred contact method.</p>
+                    {!ownerNotificationSent ? <p>Email notification is being retried by VOYD.</p> : null}
                     {clientConfirmationEmailSent ? <p>A confirmation email with the calendar invite is on its way to you.</p> : null}
                   </div>
                   <dl>

@@ -37,10 +37,13 @@ The private admin dashboard (`/admin/login`, `/admin/bookings`) talks to:
 
 - `GET /api/admin/bookings` - list bookings and blocked slots
 - `PATCH /api/admin/bookings` - update status or admin notes
+- `GET /api/admin/blocks` - list blocked slots
 - `POST /api/admin/blocks` - block a date or a single slot
 - `DELETE /api/admin/blocks` - unblock a slot
+- `POST /api/admin/notifications/retry` - retry a failed owner notification
+- `GET /api/health/booking` - safe booking-system health check
 
-All four admin requests require a Supabase Auth bearer token for `voyd.contact1@gmail.com`;
+All admin requests require a Supabase Auth bearer token for `voyd.contact1@gmail.com`;
 every other email is rejected server-side even with a valid Supabase session.
 
 The booking system uses the official VOYD schedule in `src/config/booking-runtime.mjs`
@@ -61,7 +64,7 @@ SUPABASE_SERVICE_ROLE_KEY=server_only_service_role_key
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=public_anon_key
 VOYD_LEADS_EMAIL=voyd.contact1@gmail.com
-VOYD_FROM_EMAIL=VOYD <voyd.contact1@gmail.com>
+VOYD_FROM_EMAIL=VOYD <onboarding@resend.dev>
 RESEND_API_KEY=your_resend_api_key
 VOYD_PUBLIC_URL=https://your-voyd-domain.com
 VOYD_TIMEZONE=Europe/Berlin
@@ -79,9 +82,10 @@ Production contact destinations:
 
 1. Create a Supabase project.
 2. Run `supabase/migrations/create_booking_system.sql` in the Supabase SQL editor.
-3. In Authentication, enable Email (magic link / OTP) sign-in.
-4. Add your production site URL (and `/admin/bookings`) to the allowed redirect URLs.
-5. Only `voyd.contact1@gmail.com` should ever request an admin login link - the backend
+3. Run `supabase/migrations/20260710190000_booking_notification_statuses.sql` in the Supabase SQL editor.
+4. In Authentication, enable Email (magic link / OTP) sign-in.
+5. Add your production site URL (and `/admin/bookings`) to the allowed redirect URLs.
+6. Only `voyd.contact1@gmail.com` should ever request an admin login link - the backend
    independently rejects any other authenticated email on every admin API call.
 
 ## Admin login
@@ -96,15 +100,23 @@ Production contact destinations:
 ## Resend setup
 
 1. Create a Resend API key.
-2. Verify the sender domain used by `VOYD_FROM_EMAIL` to enable client confirmation emails
-   (without a verified domain, Resend can only deliver to the account owner, so only the owner
-   notification will send reliably).
-3. Add `RESEND_API_KEY` and `VOYD_FROM_EMAIL` to Vercel environment variables.
+2. Until a VOYD sender domain is verified, use `VOYD_FROM_EMAIL=VOYD <onboarding@resend.dev>`.
+   In this Resend test mode, VOYD sends the complete owner notification to `VOYD_LEADS_EMAIL`
+   and skips arbitrary client confirmation emails honestly.
+3. Verify a VOYD sender domain later to enable client confirmation emails.
+4. Add `RESEND_API_KEY`, `VOYD_FROM_EMAIL`, and `VOYD_LEADS_EMAIL` to Vercel environment variables.
 
-Booking success is only returned after server-side validation, Supabase insertion, and owner
-notification acceptance. If the owner notification fails, the booking is cancelled and the slot
-is released automatically. The client confirmation email is best-effort: if it fails, the
-booking still succeeds and the API response reports `clientConfirmationEmailSent: false`.
+Booking success is returned after server-side validation and Supabase insertion. Email delivery
+is a best-effort notification layer after the booking is saved: if owner notification fails,
+the slot remains reserved, the booking appears in admin, `ownerNotificationSent` is `false`,
+and the admin can retry the notification.
+
+## Verification
+
+```bash
+npm run build
+npm run verify:booking
+```
 
 ## Vercel deployment
 

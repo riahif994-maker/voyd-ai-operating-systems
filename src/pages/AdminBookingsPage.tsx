@@ -1,4 +1,4 @@
-import { AlertCircle, CalendarDays, CheckCircle2, Copy, Download, LogOut, MessageCircle, Search, XCircle } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, Copy, Download, LogOut, MessageCircle, RefreshCcw, Search, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -38,6 +38,10 @@ type BookingRecord = {
   additional_message: string | null;
   status: BookingStatus;
   admin_notes: string | null;
+  owner_notification_status: "pending" | "sent" | "failed" | "skipped";
+  client_notification_status: "pending" | "sent" | "failed" | "skipped";
+  owner_notification_error: string | null;
+  client_notification_error: string | null;
   source_page: string | null;
   referrer: string | null;
   created_at: string;
@@ -218,6 +222,26 @@ export default function AdminBookingsPage() {
       await loadBookings(session.accessToken);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Could not update this booking.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const retryNotification = async (id: string) => {
+    if (!session?.accessToken) return;
+    setLoading(true);
+    setActionError("");
+    try {
+      const response = await fetch("/api/admin/notifications/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.accessToken}` },
+        body: JSON.stringify({ id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not retry this notification.");
+      await loadBookings(session.accessToken);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not retry this notification.");
     } finally {
       setLoading(false);
     }
@@ -421,9 +445,23 @@ export default function AdminBookingsPage() {
                       <dd>{booking.client_timezone}</dd>
                     </div>
                     <div>
+                      <dt>Owner notification</dt>
+                      <dd>{booking.owner_notification_status || "pending"}</dd>
+                    </div>
+                    <div>
+                      <dt>Client confirmation</dt>
+                      <dd>{booking.client_notification_status || "pending"}</dd>
+                    </div>
+                    <div>
                       <dt>Source page</dt>
                       <dd>{booking.source_page || "-"}</dd>
                     </div>
+                    {booking.owner_notification_error ? (
+                      <div>
+                        <dt>Owner notification error</dt>
+                        <dd>{booking.owner_notification_error}</dd>
+                      </div>
+                    ) : null}
                   </dl>
                   <div className="admin-actions">
                     <button type="button" onClick={() => updateBooking(booking.id, { action: "status", status: "confirmed" })}>
@@ -452,6 +490,11 @@ export default function AdminBookingsPage() {
                     <button type="button" onClick={() => downloadIcs(booking)}>
                       <Download size={14} /> ICS
                     </button>
+                    {booking.owner_notification_status === "failed" ? (
+                      <button type="button" onClick={() => retryNotification(booking.id)}>
+                        <RefreshCcw size={14} /> Retry owner notification
+                      </button>
+                    ) : null}
                   </div>
                   <div className="admin-notes">
                     <textarea

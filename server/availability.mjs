@@ -17,7 +17,7 @@ export function normalizeClientTimeZone(timeZone) {
   return timeZone && isValidTimeZone(timeZone) ? timeZone : "UTC";
 }
 
-function generateAvailabilitySkeleton(clientTimeZone, now = new Date()) {
+export function generateAvailabilitySkeleton(clientTimeZone, now = new Date()) {
   const startDateKey = dateKeyInTimeZone(now, bookingConfig.timezone);
   const minimumStart = new Date(now.getTime() + bookingConfig.minimumNoticeHours * 60 * 60 * 1000);
   const dates = [];
@@ -65,7 +65,7 @@ function generateAvailabilitySkeleton(clientTimeZone, now = new Date()) {
   return dates;
 }
 
-export async function getAvailability(rawClientTimeZone = "UTC") {
+export async function getAvailability(rawClientTimeZone = "UTC", now = new Date()) {
   const clientTimeZone = normalizeClientTimeZone(rawClientTimeZone);
   if (!hasSupabaseConfig()) {
     return {
@@ -79,7 +79,7 @@ export async function getAvailability(rawClientTimeZone = "UTC") {
     };
   }
 
-  const dates = generateAvailabilitySkeleton(clientTimeZone);
+  const dates = generateAvailabilitySkeleton(clientTimeZone, now);
   const firstSlot = dates[0]?.slots[0];
   const lastDate = dates[dates.length - 1];
   const lastSlot = lastDate?.slots[lastDate.slots.length - 1];
@@ -100,7 +100,11 @@ export async function getAvailability(rawClientTimeZone = "UTC") {
   const bookingFilter = `bookings?select=starts_at,status&starts_at=gte.${from}&starts_at=lte.${to}&status=in.(${activeStatuses.join(",")})`;
   const blockFilter = `blocked_booking_slots?select=starts_at&starts_at=gte.${from}&starts_at=lte.${to}`;
   const [bookings, blocks] = await Promise.all([supabaseRest(bookingFilter), supabaseRest(blockFilter)]);
-  const bookedTimes = new Set((bookings || []).map((booking) => new Date(booking.starts_at).getTime()));
+  const bookedTimes = new Set(
+    (bookings || [])
+      .filter((booking) => activeStatuses.includes(booking.status))
+      .map((booking) => new Date(booking.starts_at).getTime()),
+  );
   const blockedTimes = new Set((blocks || []).map((block) => new Date(block.starts_at).getTime()));
 
   const hydratedDates = dates.map((date) => {

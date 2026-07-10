@@ -2286,7 +2286,7 @@ button {
   background: transparent;
 }
 
-.route-fallback {
+.route-loading {
   display: grid;
   min-height: 420px;
   place-items: center;

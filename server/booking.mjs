@@ -1,12 +1,7 @@
-import {
-  ApiError,
-  limitString,
-  validateEmail,
-  validatePhone,
-} from "./http.mjs";
+import { ApiError, limitString, validateEmail, validatePhone } from "./http.mjs";
 import { supabaseRest } from "./supabase.mjs";
 import { findAvailableSlot, normalizeClientTimeZone } from "./availability.mjs";
-import { sendClientBookingConfirmation, sendOwnerBookingNotification } from "./email.mjs";
+import { safeNotificationError, sendClientBookingConfirmation, sendOwnerBookingNotification } from "./email.mjs";
 import {
   bookingConfig,
   buildSlotDisplay,
@@ -85,6 +80,11 @@ async function insertBooking(normalized, slot, meta) {
     preferred_contact_method: normalized.preferredContactMethod,
     additional_message: normalized.additionalMessage,
     status: "new",
+    admin_notes: null,
+    owner_notification_status: "pending",
+    client_notification_status: "pending",
+    owner_notification_error: null,
+    client_notification_error: null,
     source_page: meta.sourcePage,
     referrer: meta.referrer,
   };
@@ -96,26 +96,94 @@ async function insertBooking(normalized, slot, meta) {
   return result?.[0];
 }
 
-async function cancelBookingAfterOwnerNotificationFailure(bookingId) {
-  if (!bookingId) return;
-  await supabaseRest(`bookings?id=eq.${encodeURIComponent(bookingId)}`, {
+export async function updateBookingNotificationStatus(bookingId, patch) {
+  const updated = await supabaseRest(`bookings?id=eq.${encodeURIComponent(bookingId)}&select=*`, {
     method: "PATCH",
-    headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({
-      status: "cancelled",
-      admin_notes: `Automatic cancellation: owner notification failed at ${new Date().toISOString()}.`,
-      updated_at: new Date().toISOString(),
-    }),
-  }).catch((error) => console.error("[VOYD rollback error]", error));
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
+  });
+  return updated?.[0];
 }
 
-function requestMeta(payload = {}) {
+export function requestMeta(payload = {}) {
   return {
     timestamp: new Date().toISOString(),
     sourcePage: limitString(payload.sourcePage || "", 300, "Source page"),
     browserLanguage: limitString(payload.browserLanguage || "", 80, "Browser language"),
     referrer: limitString(payload.referrer || "", 300, "Referrer"),
   };
+}
+
+function bookingResponse(booking, ics, notification) {
+  const display = buildSlotDisplay(booking.starts_at, booking.client_timezone);
+  return {
+    ok: true,
+    ownerNotificationSent: notification.ownerSent,
+    clientConfirmationSent: notification.clientSent,
+    clientConfirmationEmailSent: notification.clientSent,
+    ownerNotificationStatus: notification.ownerStatus,
+    clientNotificationStatus: notification.clientStatus,
+    booking: {
+      bookingReference: booking.booking_reference,
+      startsAt: booking.starts_at,
+      endsAt: booking.ends_at,
+      selectedProduct: booking.selected_product,
+      preferredContactMethod: booking.preferred_contact_method,
+      clientTimezone: booking.client_timezone,
+      clientDate: display.clientDate,
+      clientTime: display.clientTime,
+      clientDateTime: display.clientDateTime,
+      berlinDateTime: display.berlinDateTime,
+      durationMinutes: bookingConfig.durationMinutes,
+    },
+    ics,
+    message: "Your meeting time is reserved. VOYD will confirm the call using your preferred contact method.",
+  };
+}
+
+export async function runBookingNotifications(booking, meta, ics) {
+  let currentBooking = booking;
+  let ownerSent = false;
+  let clientSent = false;
+  let ownerStatus = "failed";
+  let clientStatus = "skipped";
+
+  try {
+    await sendOwnerBookingNotification(currentBooking, meta, ics);
+    ownerSent = true;
+    ownerStatus = "sent";
+    currentBooking = await updateBookingNotificationStatus(currentBooking.id, {
+      owner_notification_status: "sent",
+      owner_notification_error: null,
+    });
+  } catch (error) {
+    ownerStatus = "failed";
+    currentBooking = await updateBookingNotificationStatus(currentBooking.id, {
+      owner_notification_status: "failed",
+      owner_notification_error: safeNotificationError(error),
+      client_notification_status: "skipped",
+      client_notification_error: null,
+    });
+    return { booking: currentBooking, ownerSent, clientSent, ownerStatus, clientStatus };
+  }
+
+  try {
+    const clientResult = await sendClientBookingConfirmation(currentBooking, ics);
+    clientSent = Boolean(clientResult.sent);
+    clientStatus = clientResult.status;
+    currentBooking = await updateBookingNotificationStatus(currentBooking.id, {
+      client_notification_status: clientResult.status,
+      client_notification_error: null,
+    });
+  } catch (error) {
+    clientStatus = "failed";
+    currentBooking = await updateBookingNotificationStatus(currentBooking.id, {
+      client_notification_status: "failed",
+      client_notification_error: safeNotificationError(error),
+    });
+  }
+
+  return { booking: currentBooking, ownerSent, clientSent, ownerStatus, clientStatus };
 }
 
 export async function submitBooking(payload) {
@@ -133,39 +201,6 @@ export async function submitBooking(payload) {
     startsAtIso: booking.starts_at,
   });
 
-  try {
-    await sendOwnerBookingNotification(booking, meta, ics);
-  } catch (error) {
-    await cancelBookingAfterOwnerNotificationFailure(booking.id);
-    throw error;
-  }
-
-  let clientConfirmationEmailSent = false;
-  try {
-    await sendClientBookingConfirmation(booking, ics);
-    clientConfirmationEmailSent = true;
-  } catch (error) {
-    console.warn("[VOYD client confirmation email failed]", { bookingId: booking.id, code: error.code });
-  }
-
-  const display = buildSlotDisplay(booking.starts_at, booking.client_timezone);
-  return {
-    ok: true,
-    clientConfirmationEmailSent,
-    booking: {
-      bookingReference: booking.booking_reference,
-      startsAt: booking.starts_at,
-      endsAt: booking.ends_at,
-      selectedProduct: booking.selected_product,
-      preferredContactMethod: booking.preferred_contact_method,
-      clientTimezone: booking.client_timezone,
-      clientDate: display.clientDate,
-      clientTime: display.clientTime,
-      clientDateTime: display.clientDateTime,
-      berlinDateTime: display.berlinDateTime,
-      durationMinutes: bookingConfig.durationMinutes,
-    },
-    ics,
-    message: "Your meeting time is reserved. VOYD will confirm the call using your preferred contact method.",
-  };
+  const notification = await runBookingNotifications(booking, meta, ics);
+  return bookingResponse(notification.booking, ics, notification);
 }
